@@ -40,6 +40,8 @@ const statusMeta = (s: string) => {
 type Props = {
   booking: Booking | null;
   hallName?: string;
+  hallAddress?: string;
+  ownerPhone?: string;
   onClose: () => void;
   onEdit: (b: Booking) => void;
   onUpdate: (id: string, data: Partial<Booking>) => Promise<void>;
@@ -48,7 +50,7 @@ type Props = {
   onDelete: (id: string) => Promise<void>;
 };
 
-export default function BookingDetailSheet({ booking, hallName, onClose, onEdit, onUpdate, onAddPayment, onDeletePayment, onDelete }: Props) {
+export default function BookingDetailSheet({ booking, hallName, hallAddress, ownerPhone, onClose, onEdit, onUpdate, onAddPayment, onDeletePayment, onDelete }: Props) {
   const [collectVisible, setCollectVisible] = useState(false);
   const [collectAmount, setCollectAmount] = useState('');
   const [collectBusy, setCollectBusy] = useState(false);
@@ -120,7 +122,7 @@ export default function BookingDetailSheet({ booking, hallName, onClose, onEdit,
   };
 
   const onInvoice = async () => {
-    try { await shareInvoice(booking, { hallName }); }
+    try { await shareInvoice(booking, { hallName, hallAddress, ownerPhone }); }
     catch (e: any) { Alert.alert('Invoice error', e.message || 'Failed to generate invoice'); }
   };
 

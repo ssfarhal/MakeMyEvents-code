@@ -68,7 +68,7 @@ const paymentsSectionHtml = (payments: Payment[] | undefined, advance: number) =
     </table></div>`;
 };
 
-export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string }) {
+export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string; hallAddress?: string; ownerPhone?: string }) {
   const total = booking.totalAmount || 0;
   const advance = booking.advancePaid || 0;
   const balance = total - advance;
@@ -76,7 +76,14 @@ export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string })
   const invoiceDate = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
   const termsHtml = DEFAULT_TERMS.split('\n').filter((l) => l.trim()).map((l) => `<li>${l.trim()}</li>`).join('\n');
   const hallName = opts?.hallName || 'MAKEMYEVENTS CONVENTION HALL';
+  const hallAddress = opts?.hallAddress || '';
+  const ownerPhone = opts?.ownerPhone || '';
   const notes = booking.notes || '';
+
+  const headerSubHtml = [
+    hallAddress ? `<span>📍 ${hallAddress}</span>` : '',
+    ownerPhone ? `<span>📞 ${ownerPhone}</span>` : '',
+  ].filter(Boolean).join('&nbsp;&nbsp;•&nbsp;&nbsp;');
 
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -88,6 +95,7 @@ export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string })
   .header{background:linear-gradient(135deg,#7B1D3C,#541528);color:#fff;padding:32px 36px}
   .header h1{font-size:24px;font-weight:700;letter-spacing:1px}
   .header p{font-size:12px;opacity:0.8;margin-top:4px}
+  .header .hall-sub{font-size:11px;opacity:0.9;margin-top:8px}
   .meta{display:flex;justify-content:space-between;padding:22px 36px;background:#fafafa;border-bottom:1px solid #eee}
   .meta label{font-size:10px;color:#9e9e9e;text-transform:uppercase;letter-spacing:.5px}
   .meta p{font-size:13px;font-weight:600;margin-top:2px}
@@ -112,7 +120,7 @@ export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string })
 </style></head>
 <body>
 <div class="page">
-  <div class="header"><h1>${hallName}</h1><p>Tax Invoice / Receipt</p></div>
+  <div class="header"><h1>${hallName}</h1>${headerSubHtml ? `<p class="hall-sub">${headerSubHtml}</p>` : ''}<p>Tax Invoice / Receipt</p></div>
   <div class="meta">
     <div><label>Invoice No.</label><p>${booking.id}</p></div>
     <div><label>Invoice Date</label><p>${invoiceDate}</p></div>
@@ -147,7 +155,7 @@ export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string })
 </div></body></html>`;
 }
 
-export async function shareInvoice(booking: Booking, opts?: { hallName?: string }) {
+export async function shareInvoice(booking: Booking, opts?: { hallName?: string; hallAddress?: string; ownerPhone?: string }) {
   const html = buildInvoiceHtml(booking, opts);
   if (Platform.OS === 'web') {
     const win = window.open('', '_blank');
@@ -171,8 +179,14 @@ export async function shareInvoice(booking: Booking, opts?: { hallName?: string 
 
 // ---------------- Custom date-range report ----------------
 
-export function buildReportHtml(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string }) {
+export function buildReportHtml(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string; hallAddress?: string; ownerPhone?: string }) {
   const hallName = opts?.hallName || 'MAKEMYEVENTS CONVENTION HALL';
+  const hallAddress = opts?.hallAddress || '';
+  const ownerPhone = opts?.ownerPhone || '';
+  const headerSubBits = [
+    hallAddress ? `📍 ${hallAddress}` : '',
+    ownerPhone ? `📞 ${ownerPhone}` : '',
+  ].filter(Boolean).join(' • ');
   const now = new Date();
   const generatedOn = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
 
@@ -235,6 +249,7 @@ export function buildReportHtml(bookings: Booking[], startISO: string, endISO: s
 <div class="page">
   <div class="header">
     <h1>${hallName}</h1>
+    ${headerSubBits ? `<p style="font-size:11px;opacity:0.85;margin-top:6px">${headerSubBits}</p>` : ''}
     <p>Booking Report • ${formatShort(startISO)} — ${formatShort(endISO)} • Generated on ${generatedOn}</p>
   </div>
   <div class="kpis">
@@ -263,7 +278,7 @@ export function buildReportHtml(bookings: Booking[], startISO: string, endISO: s
 </body></html>`;
 }
 
-export async function shareReport(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string }) {
+export async function shareReport(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string; hallAddress?: string; ownerPhone?: string }) {
   const html = buildReportHtml(bookings, startISO, endISO, opts);
   if (Platform.OS === 'web') {
     const win = window.open('', '_blank');

@@ -16,7 +16,7 @@ import ReportModal from '@/src/ReportModal';
 import { Booking } from '@/src/api';
 
 export default function Dashboard() {
-  const { user, signOut, updateHallName } = useAuth();
+  const { user, signOut, updateProfile } = useAuth();
   const { bookings, refresh, addBooking, updateBooking, addPayment, deletePayment, deleteBooking, seed, loading } = useBookings();
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Booking | null>(null);
@@ -139,6 +139,8 @@ export default function Dashboard() {
       <BookingDetailSheet
         booking={detail}
         hallName={user?.hallName}
+        hallAddress={user?.hallAddress}
+        ownerPhone={user?.ownerPhone}
         onClose={() => setDetail(null)}
         onEdit={(b) => { setEditing(b); setShowAdd(true); }}
         onUpdate={updateBooking}
@@ -150,8 +152,10 @@ export default function Dashboard() {
       <SettingsModal
         visible={showSettings}
         initialName={user?.hallName || ''}
+        initialAddress={user?.hallAddress || ''}
+        initialPhone={user?.ownerPhone || ''}
         onClose={() => setShowSettings(false)}
-        onSave={async (name) => { await updateHallName(name); }}
+        onSave={async (data) => { await updateProfile(data); }}
       />
 
       <ReportModal
@@ -159,24 +163,23 @@ export default function Dashboard() {
         onClose={() => setShowReport(false)}
         bookings={bookings}
         hallName={user?.hallName}
+        hallAddress={user?.hallAddress}
+        ownerPhone={user?.ownerPhone}
       />
     </SafeAreaView>
   );
 }
 
-function SettingsModal({ visible, initialName, onClose, onSave }: any) {
-  const [name, setName] = useState(initialName || '');
-  const [busy, setBusy] = useState(false);
-  React.useEffect(() => { if (visible) setName(initialName || ''); }, [visible, initialName]);
-  const save = async () => {
-    if (!name.trim()) return;
-    setBusy(true);
-    try { await onSave(name.trim()); onClose(); }
-    catch (e: any) { console.warn(e); }
-    finally { setBusy(false); }
-  };
+function SettingsModal({ visible, initialName, initialAddress, initialPhone, onClose, onSave }: any) {
   return (
-    <SettingsBottomSheet visible={visible} onClose={onClose} name={name} setName={setName} save={save} busy={busy} />
+    <SettingsBottomSheet
+      visible={visible}
+      onClose={onClose}
+      initialName={initialName}
+      initialAddress={initialAddress}
+      initialPhone={initialPhone}
+      onSave={onSave}
+    />
   );
 }
 

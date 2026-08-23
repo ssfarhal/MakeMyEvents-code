@@ -159,6 +159,8 @@ export default function Bookings() {
       <BookingDetailSheet
         booking={detail}
         hallName={user?.hallName}
+        hallAddress={user?.hallAddress}
+        ownerPhone={user?.ownerPhone}
         onClose={() => setDetail(null)}
         onEdit={(b) => { setEditing(b); setShowAdd(true); }}
         onUpdate={updateBooking}

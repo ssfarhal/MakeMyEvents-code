@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors, eventTypeColor, formatDate } from './theme';
@@ -75,18 +76,24 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.backdrop} keyboardVerticalOffset={0}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
-          <View style={styles.header}>
-            <Text style={styles.title}>{existing ? 'Edit Booking' : 'New Booking'}</Text>
-            <Pressable onPress={onClose} testID="close-booking-sheet"><Ionicons name="close" size={22} color={Colors.onSurfaceVariant} /></Pressable>
-          </View>
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="fullScreen" statusBarTranslucent>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <Pressable onPress={onClose} testID="close-booking-sheet" style={styles.headerBack}>
+            <Ionicons name="arrow-back" size={22} color={Colors.onSurface} />
+          </Pressable>
+          <Text style={styles.title}>{existing ? 'Edit Booking' : 'New Booking'}</Text>
+          <View style={{ width: 36 }} />
+        </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={0}
+        >
           <ScrollView
-            contentContainerStyle={{ padding: 20, paddingBottom: 340 }}
+            contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator
           >
             <Text style={styles.section}>Client Details</Text>
@@ -165,8 +172,8 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{existing ? 'Update Booking' : 'Confirm Booking'}</Text>}
             </Pressable>
           </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -186,12 +193,12 @@ const fs = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '95%', flex: 1 },
-  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: '#CCC', marginTop: 10 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
-  title: { fontSize: 20, fontWeight: '800', color: Colors.onSurface },
-  section: { fontSize: 13, fontWeight: '700', color: Colors.primary, marginTop: 8, marginBottom: 8, letterSpacing: 0.3 },
+  safe: { flex: 1, backgroundColor: '#fff' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.outlineVariant, backgroundColor: '#fff' },
+  headerBack: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  title: { flex: 1, fontSize: 18, fontWeight: '800', color: Colors.onSurface, textAlign: 'center' },
+  content: { padding: 20, paddingBottom: 40 },
+  section: { fontSize: 13, fontWeight: '700', color: Colors.primary, marginTop: 12, marginBottom: 8, letterSpacing: 0.3 },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   typeChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: Colors.outline, backgroundColor: Colors.surfaceVariant },
   typeDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },

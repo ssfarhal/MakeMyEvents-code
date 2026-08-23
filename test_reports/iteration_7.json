@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 7 verification for MakeMyEvents — (a) AddBookingSheet full-screen Modal + KAV + paddingBottom=40, (b) Business Settings with 3 fields (hallName, hallAddress, ownerPhone) end-to-end from backend User/UserUpdate models through /api/auth/me + PATCH /api/auth/me, api.updateMe, AuthContext.updateProfile, SettingsBottomSheet UI, invoice.ts (buildInvoiceHtml + buildReportHtml + shareInvoice + shareReport) and dashboard/bookings wiring. Extended /app/backend/tests/test_makemyevents.py with 15 new static+shape checks; total 64/64 passing. Live endpoint /api/auth/me returns 401 without bearer (auth-gated as required). Google login screen still renders 'Continue with Google' (mobile viewport 375x667). No deprecated Expo packages introduced; no React Native red-screen errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_makemyevents.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py still uses @app.on_event('startup'/'shutdown') which FastAPI has deprecated in favour of lifespan handlers — non-blocking, but worth migrating.",
+    "invoice.ts hallName defaults to 'MAKEMYEVENTS CONVENTION HALL' when user has not set one — expected behaviour, just confirm this is acceptable copy for production PDFs.",
+    "AddBookingSheet Modal wraps its own iOS date-picker Modal — nested modals work but keep an eye on Android back-button dismiss order in real device testing."
+  ],
+  "updated_files": ["/app/backend/tests/test_makemyevents.py"],
+  "success_rate": {"backend": "100%", "frontend": "100% (static + login smoke)"},
+  "seed_data_creation": "None — Google-OAuth-gated app, only unauthenticated smoke tests executed as per review request.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live at /app/backend/tests/test_makemyevents.py (64 tests, pytest-xdist enabled). BASE URL comes from EXPO_PUBLIC_BACKEND_URL. Google OAuth cannot be completed in headless — do NOT attempt interactive login. For any new PDF-header field, extend the invoice.ts static grep block (test_invoice_html_* and test_report_html_*) plus the User/UserUpdate model checks in server.py. AddBookingSheet is now fullScreen Modal (paddingBottom=40); previous >=300 assertion has been replaced by test_add_booking_sheet_is_fullscreen_modal.",
+  "rca_of_issue": "N/A — this iteration was a verification/regression pass on already-applied fixes; no bug reproduction was required."
+}

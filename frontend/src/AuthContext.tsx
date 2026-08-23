@@ -6,17 +6,17 @@ import { api, getToken, setToken } from './api';
 
 WebBrowser.maybeCompleteAuthSession();
 
-type User = { user_id: string; email: string; name?: string; picture?: string; hallName?: string };
+type User = { user_id: string; email: string; name?: string; picture?: string; hallName?: string; hallAddress?: string; ownerPhone?: string };
 
 type Ctx = {
   user: User | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  updateHallName: (name: string) => Promise<void>;
+  updateProfile: (data: { hallName?: string; hallAddress?: string; ownerPhone?: string }) => Promise<void>;
 };
 
-const AuthContext = createContext<Ctx>({ user: null, loading: true, signIn: async () => {}, signOut: async () => {}, updateHallName: async () => {} });
+const AuthContext = createContext<Ctx>({ user: null, loading: true, signIn: async () => {}, signOut: async () => {}, updateProfile: async () => {} });
 
 export const useAuth = () => useContext(AuthContext);
 
@@ -106,11 +106,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
-  const updateHallName = useCallback(async (name: string) => {
-    const updated = await api.updateMe({ hallName: name });
+  const updateProfile = useCallback(async (data: { hallName?: string; hallAddress?: string; ownerPhone?: string }) => {
+    const updated = await api.updateMe(data);
     setUser(updated);
   }, []);
 
-  const value = useMemo(() => ({ user, loading, signIn, signOut, updateHallName }), [user, loading, signIn, signOut, updateHallName]);
+  const value = useMemo(() => ({ user, loading, signIn, signOut, updateProfile }), [user, loading, signIn, signOut, updateProfile]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -474,15 +474,88 @@ def test_detail_sheet_renders_delete_payment_buttons():
     assert "onDeletePayment" in DETAIL_TSX
 
 
-def test_add_booking_sheet_keyboard_and_scroll_fixes():
+def test_add_booking_sheet_is_fullscreen_modal():
+    # Iteration 7: New Booking is now a full-screen Modal (no bottom sheet)
+    assert 'presentationStyle="fullScreen"' in ADDSHEET_TSX
+    assert "statusBarTranslucent" in ADDSHEET_TSX
+    assert "from 'react-native-safe-area-context'" in ADDSHEET_TSX
+    assert "SafeAreaView" in ADDSHEET_TSX
     # KeyboardAvoidingView behavior string
     assert "Platform.OS === 'ios' ? 'padding' : 'height'" in ADDSHEET_TSX
-    # ScrollView paddingBottom >= 300
-    m = re.search(r"paddingBottom:\s*(\d+)", ADDSHEET_TSX)
-    assert m, "paddingBottom not found in AddBookingSheet"
-    assert int(m.group(1)) >= 300, f"expected paddingBottom >= 300, got {m.group(1)}"
-    # sheet maxHeight 95%
-    assert "maxHeight: '95%'" in ADDSHEET_TSX
+    # ScrollView paddingBottom should be small (40) so scroll stops at Confirm btn
+    m = re.search(r"content:\s*\{[^}]*paddingBottom:\s*(\d+)", ADDSHEET_TSX)
+    assert m, "content paddingBottom not found in AddBookingSheet"
+    assert int(m.group(1)) == 40, f"expected paddingBottom == 40, got {m.group(1)}"
+
+
+# ---------- Iteration 7: Business Settings + PDF header (hallAddress + ownerPhone) ----------
+SETTINGS_TSX = Path("/app/frontend/src/SettingsBottomSheet.tsx").read_text(encoding="utf-8")
+AUTHCTX_TSX = Path("/app/frontend/src/AuthContext.tsx").read_text(encoding="utf-8")
+
+
+def test_backend_user_model_has_hall_address_and_owner_phone():
+    # User model must expose the two new optional fields
+    assert re.search(r"class User\(BaseModel\):[\s\S]*hallAddress:\s*Optional\[str\]", SERVER_PY)
+    assert re.search(r"class User\(BaseModel\):[\s\S]*ownerPhone:\s*Optional\[str\]", SERVER_PY)
+
+
+def test_backend_user_update_has_hall_address_and_owner_phone():
+    assert re.search(r"class UserUpdate\(BaseModel\):[\s\S]*hallAddress:\s*Optional\[str\]", SERVER_PY)
+    assert re.search(r"class UserUpdate\(BaseModel\):[\s\S]*ownerPhone:\s*Optional\[str\]", SERVER_PY)
+
+
+def test_backend_auth_me_returns_new_fields():
+    body = _extract_fn_body(SERVER_PY, "auth_me")
+    assert '"hallAddress"' in body and '"ownerPhone"' in body
+
+
+def test_backend_update_me_returns_new_fields():
+    body = _extract_fn_body(SERVER_PY, "update_me")
+    assert '"hallAddress"' in body and '"ownerPhone"' in body
+
+
+def test_settings_sheet_has_three_input_testids():
+    for tid in ["hall-name-input", "hall-address-input", "owner-phone-input"]:
+        assert f'testID="{tid}"' in SETTINGS_TSX, f"missing testID {tid} in SettingsBottomSheet"
+
+
+def test_api_update_me_accepts_new_fields():
+    assert re.search(r"updateMe:\s*\(data:\s*\{[^}]*hallAddress\?[^}]*ownerPhone\?", API_TS)
+
+
+def test_authctx_exports_update_profile_not_hall_name():
+    assert "updateProfile" in AUTHCTX_TSX
+    assert "updateHallName" not in AUTHCTX_TSX
+    # User type has all 3 fields
+    assert re.search(r"type User = \{[^}]*hallName\?[^}]*hallAddress\?[^}]*ownerPhone\?", AUTHCTX_TSX)
+
+
+def test_invoice_html_accepts_and_renders_hall_address_and_phone():
+    # buildInvoiceHtml signature has both opts
+    assert re.search(r"buildInvoiceHtml\(booking:\s*Booking,\s*opts\?:\s*\{[^}]*hallAddress\?[^}]*ownerPhone\?", INVOICE_TS)
+    # Renders 📍 and 📞 in headerSubHtml
+    assert "headerSubHtml" in INVOICE_TS
+    assert "📍" in INVOICE_TS and "📞" in INVOICE_TS
+
+
+def test_report_html_accepts_and_renders_hall_address_and_phone():
+    assert re.search(r"buildReportHtml\([^)]*opts\?:\s*\{[^}]*hallAddress\?[^}]*ownerPhone\?", INVOICE_TS)
+    assert "headerSubBits" in INVOICE_TS
+
+
+def test_share_invoice_and_report_forward_new_opts():
+    assert re.search(r"shareInvoice\(booking:\s*Booking,\s*opts\?:\s*\{[^}]*hallAddress\?[^}]*ownerPhone\?", INVOICE_TS)
+    assert re.search(r"shareReport\([^)]*opts\?:\s*\{[^}]*hallAddress\?[^}]*ownerPhone\?", INVOICE_TS)
+
+
+def test_dashboard_forwards_new_fields_to_detail_and_report():
+    assert "hallAddress={user?.hallAddress}" in DASHBOARD_TSX
+    assert "ownerPhone={user?.ownerPhone}" in DASHBOARD_TSX
+
+
+def test_bookings_screen_forwards_new_fields_to_detail():
+    assert "hallAddress={user?.hallAddress}" in BOOKINGS_TSX
+    assert "ownerPhone={user?.ownerPhone}" in BOOKINGS_TSX
 
 
 def test_tabs_layout_uses_safe_area_insets():

@@ -35,10 +35,14 @@ class User(BaseModel):
     name: Optional[str] = None
     picture: Optional[str] = None
     hallName: Optional[str] = None
+    hallAddress: Optional[str] = None
+    ownerPhone: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
     hallName: Optional[str] = None
+    hallAddress: Optional[str] = None
+    ownerPhone: Optional[str] = None
 
 
 class AuthResponse(BaseModel):
@@ -176,7 +180,7 @@ async def exchange_session(payload: SessionExchange):
 @api_router.get("/auth/me", response_model=User)
 async def auth_me(authorization: Optional[str] = Header(default=None)):
     u = await get_current_user(authorization)
-    return User(**{k: u.get(k) for k in ["user_id", "email", "name", "picture", "hallName"]})
+    return User(**{k: u.get(k) for k in ["user_id", "email", "name", "picture", "hallName", "hallAddress", "ownerPhone"]})
 
 
 @api_router.patch("/auth/me", response_model=User)
@@ -186,7 +190,7 @@ async def update_me(payload: UserUpdate, authorization: Optional[str] = Header(d
     if updates:
         await db.users.update_one({"user_id": u["user_id"]}, {"$set": updates})
     doc = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0})
-    return User(**{k: doc.get(k) for k in ["user_id", "email", "name", "picture", "hallName"]})
+    return User(**{k: doc.get(k) for k in ["user_id", "email", "name", "picture", "hallName", "hallAddress", "ownerPhone"]})
 
 
 @api_router.post("/auth/logout")
