@@ -68,7 +68,7 @@ const paymentsSectionHtml = (payments: Payment[] | undefined, advance: number) =
     </table></div>`;
 };
 
-export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string; hallAddress?: string; ownerPhone?: string }) {
+export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) {
   const total = booking.totalAmount || 0;
   const advance = booking.advancePaid || 0;
   const balance = total - advance;
@@ -77,13 +77,15 @@ export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string; h
   const termsHtml = DEFAULT_TERMS.split('\n').filter((l) => l.trim()).map((l) => `<li>${l.trim()}</li>`).join('\n');
   const hallName = opts?.hallName || 'MAKEMYEVENTS CONVENTION HALL';
   const hallAddress = opts?.hallAddress || '';
+  const ownerName = opts?.ownerName || '';
   const ownerPhone = opts?.ownerPhone || '';
   const notes = booking.notes || '';
 
+  const ownerLine = [ownerName, ownerPhone ? `📞 ${ownerPhone}` : ''].filter(Boolean).join(' • ');
   const headerSubHtml = [
     hallAddress ? `<span>📍 ${hallAddress}</span>` : '',
-    ownerPhone ? `<span>📞 ${ownerPhone}</span>` : '',
-  ].filter(Boolean).join('&nbsp;&nbsp;•&nbsp;&nbsp;');
+    ownerLine ? `<span>${ownerLine}</span>` : '',
+  ].filter(Boolean).join('<br/>');
 
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -155,7 +157,7 @@ export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string; h
 </div></body></html>`;
 }
 
-export async function shareInvoice(booking: Booking, opts?: { hallName?: string; hallAddress?: string; ownerPhone?: string }) {
+export async function shareInvoice(booking: Booking, opts?: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) {
   const html = buildInvoiceHtml(booking, opts);
   if (Platform.OS === 'web') {
     const win = window.open('', '_blank');
@@ -179,14 +181,16 @@ export async function shareInvoice(booking: Booking, opts?: { hallName?: string;
 
 // ---------------- Custom date-range report ----------------
 
-export function buildReportHtml(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string; hallAddress?: string; ownerPhone?: string }) {
+export function buildReportHtml(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) {
   const hallName = opts?.hallName || 'MAKEMYEVENTS CONVENTION HALL';
   const hallAddress = opts?.hallAddress || '';
+  const ownerName = opts?.ownerName || '';
   const ownerPhone = opts?.ownerPhone || '';
+  const ownerBits = [ownerName, ownerPhone ? `📞 ${ownerPhone}` : ''].filter(Boolean).join(' • ');
   const headerSubBits = [
     hallAddress ? `📍 ${hallAddress}` : '',
-    ownerPhone ? `📞 ${ownerPhone}` : '',
-  ].filter(Boolean).join(' • ');
+    ownerBits,
+  ].filter(Boolean).join(' | ');
   const now = new Date();
   const generatedOn = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
 
@@ -278,7 +282,7 @@ export function buildReportHtml(bookings: Booking[], startISO: string, endISO: s
 </body></html>`;
 }
 
-export async function shareReport(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string; hallAddress?: string; ownerPhone?: string }) {
+export async function shareReport(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) {
   const html = buildReportHtml(bookings, startISO, endISO, opts);
   if (Platform.OS === 'web') {
     const win = window.open('', '_blank');

@@ -160,6 +160,7 @@ export default function Bookings() {
         booking={detail}
         hallName={user?.hallName}
         hallAddress={user?.hallAddress}
+        ownerName={user?.ownerName}
         ownerPhone={user?.ownerPhone}
         onClose={() => setDetail(null)}
         onEdit={(b) => { setEditing(b); setShowAdd(true); }}

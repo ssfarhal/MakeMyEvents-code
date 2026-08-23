@@ -36,6 +36,7 @@ export default function Dashboard() {
 
   const now = new Date();
   const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening';
+  const displayName = (user?.ownerName && user.ownerName.trim().split(' ')[0]) || 'Owner';
   const todayISO = now.toISOString().slice(0, 10);
   const todayBookings = bookings.filter((b) => b.eventDate === todayISO);
   const upcoming = bookings.filter((b) => b.eventDate >= todayISO && b.status !== 'cancelled').slice(0, 4);
@@ -76,7 +77,7 @@ export default function Dashboard() {
             <View style={[styles.dot, { backgroundColor: todayBookings.length ? '#FF6B6B' : '#6BCB77' }]} />
             <Text style={styles.availText}>{todayBookings.length ? 'Hall Booked Today' : 'Hall Available Today'}</Text>
           </View>
-          <Text style={styles.greeting}>{greeting}, {user?.name?.split(' ')[0] || 'Owner'}</Text>
+          <Text style={styles.greeting}>{greeting}, {displayName}</Text>
           <Text style={styles.heroBig}>
             {todayBookings.length ? `${todayBookings[0].clientName} — ${todayBookings[0].eventType}` : 'No events scheduled today'}
           </Text>
@@ -131,6 +132,7 @@ export default function Dashboard() {
         booking={detail}
         hallName={user?.hallName}
         hallAddress={user?.hallAddress}
+        ownerName={user?.ownerName}
         ownerPhone={user?.ownerPhone}
         onClose={() => setDetail(null)}
         onEdit={(b) => { setEditing(b); setShowAdd(true); }}
@@ -145,6 +147,7 @@ export default function Dashboard() {
         initialName={user?.hallName || ''}
         initialAddress={user?.hallAddress || ''}
         initialPhone={user?.ownerPhone || ''}
+        initialOwnerName={user?.ownerName || ''}
         onClose={() => setShowSettings(false)}
         onSave={async (data) => { await updateProfile(data); }}
       />
@@ -155,6 +158,7 @@ export default function Dashboard() {
         bookings={bookings}
         hallName={user?.hallName}
         hallAddress={user?.hallAddress}
+        ownerName={user?.ownerName}
         ownerPhone={user?.ownerPhone}
       />
 
@@ -162,7 +166,7 @@ export default function Dashboard() {
         visible={showMenu}
         onClose={() => setShowMenu(false)}
         hallName={user?.hallName}
-        ownerName={user?.name}
+        ownerName={user?.ownerName}
         ownerEmail={user?.email}
         items={[
           { key: 'reports', label: 'Reports', icon: 'document-text-outline', onPress: () => setShowReport(true) },
@@ -175,7 +179,7 @@ export default function Dashboard() {
   );
 }
 
-function SettingsModal({ visible, initialName, initialAddress, initialPhone, onClose, onSave }: any) {
+function SettingsModal({ visible, initialName, initialAddress, initialPhone, initialOwnerName, onClose, onSave }: any) {
   return (
     <SettingsBottomSheet
       visible={visible}
@@ -183,6 +187,7 @@ function SettingsModal({ visible, initialName, initialAddress, initialPhone, onC
       initialName={initialName}
       initialAddress={initialAddress}
       initialPhone={initialPhone}
+      initialOwnerName={initialOwnerName}
       onSave={onSave}
     />
   );

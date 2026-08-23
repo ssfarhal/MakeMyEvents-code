@@ -9,13 +9,15 @@ type Props = {
   initialName?: string;
   initialAddress?: string;
   initialPhone?: string;
-  onSave: (data: { hallName: string; hallAddress: string; ownerPhone: string }) => Promise<void>;
+  initialOwnerName?: string;
+  onSave: (data: { hallName: string; hallAddress: string; ownerName: string; ownerPhone: string }) => Promise<void>;
 };
 
-export default function SettingsBottomSheet({ visible, onClose, initialName, initialAddress, initialPhone, onSave }: Props) {
+export default function SettingsBottomSheet({ visible, onClose, initialName, initialAddress, initialPhone, initialOwnerName, onSave }: Props) {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
+  const [ownerName, setOwnerName] = useState('');
   const [busy, setBusy] = useState(false);
 
   React.useEffect(() => {
@@ -23,14 +25,15 @@ export default function SettingsBottomSheet({ visible, onClose, initialName, ini
       setName(initialName || '');
       setAddress(initialAddress || '');
       setPhone(initialPhone || '');
+      setOwnerName(initialOwnerName || '');
     }
-  }, [visible, initialName, initialAddress, initialPhone]);
+  }, [visible, initialName, initialAddress, initialPhone, initialOwnerName]);
 
   const save = async () => {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await onSave({ hallName: name.trim(), hallAddress: address.trim(), ownerPhone: phone.trim() });
+      await onSave({ hallName: name.trim(), hallAddress: address.trim(), ownerName: ownerName.trim(), ownerPhone: phone.trim() });
       onClose();
     } catch (e) { console.warn(e); }
     finally { setBusy(false); }
@@ -76,6 +79,19 @@ export default function SettingsBottomSheet({ visible, onClose, initialName, ini
                 placeholderTextColor={Colors.muted}
                 style={[styles.input, { minHeight: 60 }]}
                 multiline
+              />
+            </View>
+
+            <Text style={styles.label}>Owner Name</Text>
+            <View style={styles.inputWrap}>
+              <Ionicons name="person-outline" size={16} color={Colors.muted} style={{ marginRight: 8 }} />
+              <TextInput
+                testID="owner-name-input"
+                value={ownerName}
+                onChangeText={setOwnerName}
+                placeholder="e.g. Ramesh Kumar"
+                placeholderTextColor={Colors.muted}
+                style={styles.input}
               />
             </View>
 

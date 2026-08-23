@@ -36,7 +36,9 @@ export default function MenuSheet({ visible, onClose, items, hallName, ownerName
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.hallName} numberOfLines={1}>{hallName || 'MakeMyEvents'}</Text>
-              <Text style={styles.email} numberOfLines={1}>{ownerName || ownerEmail || 'Owner'}</Text>
+              {ownerName ? (
+                <Text style={styles.email} numberOfLines={1}>{ownerName}</Text>
+              ) : null}
             </View>
             <Pressable onPress={onClose} testID="close-menu-btn" style={styles.closeBtn}>
               <Ionicons name="close" size={20} color={Colors.onSurfaceVariant} />

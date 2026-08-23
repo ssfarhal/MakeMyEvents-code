@@ -6,14 +6,14 @@ import { api, getToken, setToken } from './api';
 
 WebBrowser.maybeCompleteAuthSession();
 
-type User = { user_id: string; email: string; name?: string; picture?: string; hallName?: string; hallAddress?: string; ownerPhone?: string };
+type User = { user_id: string; email: string; name?: string; picture?: string; hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string };
 
 type Ctx = {
   user: User | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (data: { hallName?: string; hallAddress?: string; ownerPhone?: string }) => Promise<void>;
+  updateProfile: (data: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) => Promise<void>;
 };
 
 const AuthContext = createContext<Ctx>({ user: null, loading: true, signIn: async () => {}, signOut: async () => {}, updateProfile: async () => {} });

@@ -12,6 +12,7 @@ type Props = {
   bookings: Booking[];
   hallName?: string;
   hallAddress?: string;
+  ownerName?: string;
   ownerPhone?: string;
 };
 
@@ -19,7 +20,7 @@ const toISODate = (d: Date) => d.toISOString().slice(0, 10);
 const startOfMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); };
 const endOfMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0); };
 
-export default function ReportModal({ visible, onClose, bookings, hallName, hallAddress, ownerPhone }: Props) {
+export default function ReportModal({ visible, onClose, bookings, hallName, hallAddress, ownerName, ownerPhone }: Props) {
   const [start, setStart] = useState<Date>(startOfMonth());
   const [end, setEnd] = useState<Date>(endOfMonth());
   const [showStart, setShowStart] = useState(false);
@@ -56,7 +57,7 @@ export default function ReportModal({ visible, onClose, bookings, hallName, hall
   const generate = async () => {
     if (startISO > endISO) { Alert.alert('Invalid range', 'Start date must be before end date.'); return; }
     setBusy(true);
-    try { await shareReport(bookings, startISO, endISO, { hallName, hallAddress, ownerPhone }); }
+    try { await shareReport(bookings, startISO, endISO, { hallName, hallAddress, ownerName, ownerPhone }); }
     catch (e: any) { Alert.alert('Report error', e.message || 'Failed to generate PDF'); }
     finally { setBusy(false); }
   };
