@@ -5,17 +5,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useBookings } from '@/src/BookingsContext';
 import { Colors, formatINR, eventTypeColor } from '@/src/theme';
 import { Booking } from '@/src/api';
+import AddBookingSheet from '@/src/AddBookingSheet';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 export default function CalendarScreen() {
-  const { bookings } = useBookings();
+  const { bookings, addBooking } = useBookings();
   const [focused, setFocused] = useState(() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [addPrefillDate, setAddPrefillDate] = useState<Date | null>(null);
 
   const y = focused.getFullYear();
   const m = focused.getMonth();
@@ -155,9 +158,10 @@ export default function CalendarScreen() {
                   <Text style={styles.dayTitle}>{selectedDay.toDateString()}</Text>
                   <Text style={styles.dayMeta}>{selectedBookings.length} booking{selectedBookings.length !== 1 ? 's' : ''}</Text>
                   {selectedBookings.length === 0 ? (
-                    <View style={{ alignItems: 'center', paddingVertical: 30 }}>
+                    <View style={{ alignItems: 'center', paddingVertical: 20 }}>
                       <Ionicons name="checkmark-circle" size={40} color={Colors.success} />
-                      <Text style={{ color: Colors.success, fontWeight: '700', marginTop: 8 }}>Hall is available</Text>
+                      <Text style={{ color: Colors.success, fontWeight: '700', marginTop: 8, fontSize: 15 }}>Hall is available on this date</Text>
+                      <Text style={{ color: Colors.muted, marginTop: 4, fontSize: 13 }}>No events scheduled. Perfect for booking!</Text>
                     </View>
                   ) : (
                     selectedBookings.map((b) => (
@@ -171,12 +175,33 @@ export default function CalendarScreen() {
                       </View>
                     ))
                   )}
+                  <Pressable
+                    testID="book-this-date-btn"
+                    onPress={() => {
+                      setAddPrefillDate(selectedDay);
+                      setSelectedDay(null);
+                      setShowAdd(true);
+                    }}
+                    style={styles.bookDateBtn}
+                  >
+                    <Ionicons name="add" size={20} color="#fff" />
+                    <Text style={styles.bookDateText}>
+                      {selectedBookings.length === 0 ? 'Book this Date' : 'Add another booking'}
+                    </Text>
+                  </Pressable>
                 </>
               )}
             </ScrollView>
           </View>
         </View>
       </Modal>
+
+      <AddBookingSheet
+        visible={showAdd}
+        prefillDate={addPrefillDate}
+        onClose={() => { setShowAdd(false); setAddPrefillDate(null); }}
+        onSubmit={addBooking}
+      />
     </SafeAreaView>
   );
 }
@@ -230,4 +255,6 @@ const styles = StyleSheet.create({
   bkName: { fontSize: 14, fontWeight: '700', color: Colors.onSurface },
   bkMeta: { fontSize: 12, color: Colors.muted, marginTop: 2 },
   bkMoney: { fontSize: 12, color: Colors.primary, fontWeight: '700', marginTop: 4 },
+  bookDateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16, marginTop: 16 },
+  bookDateText: { color: '#fff', fontWeight: '800', fontSize: 15 },
 });

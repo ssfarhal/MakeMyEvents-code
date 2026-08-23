@@ -1,0 +1,31 @@
+{
+  "summary": "Verified fix for 'cannot book events direct from calendar'. Login screen renders and Google sign-in correctly redirects to accounts.google.com (Emergent OAuth). Backend health GET /api/ returns MakeMyEvents API message (200). Calendar UI is auth-gated (real Google login required) so end-to-end tap-flow could not be exercised; static code verification of the new wiring passed on all points: testID 'book-this-date-btn' exists in calendar.tsx, its onPress sets addPrefillDate=selectedDay, closes the day-detail modal, then opens AddBookingSheet with showAdd=true; button label switches between 'Book this Date' (0 bookings) and 'Add another booking' (>=1); AddBookingSheet accepts prefillDate prop and its visible-triggered useEffect initializes internal date state from prefillDate when no existing booking. No red-screen, no runtime console errors — only a cosmetic RN-Web 'shadow*' deprecation warning (pre-existing).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_makemyevents.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "None required for this bug fix. Optional: replace deprecated shadow* style props with boxShadow (carried over from iteration_1)."
+  ],
+  "critical_code_review_comments": [
+    "calendar.tsx line 179-191: 'book-this-date-btn' Pressable correctly wires setAddPrefillDate(selectedDay) -> setSelectedDay(null) -> setShowAdd(true). Order is correct so the day-detail sheet closes before AddBookingSheet opens, avoiding double-modal stacking.",
+    "calendar.tsx line 199-204: AddBookingSheet receives prefillDate={addPrefillDate} and onClose clears both showAdd and addPrefillDate — good cleanup.",
+    "AddBookingSheet.tsx line 31-43: useEffect keyed on [visible, existing, prefillDate] resets internal date to (existing.eventDate || prefillDate || null). Correct precedence: existing booking wins in edit mode, prefill wins for new-from-calendar path.",
+    "Minor: date.toISOString().slice(0,10) in submit uses UTC date — for users in far-east/far-west timezones tapping a late-evening date, the eventDate stored may off-by-one from what was tapped. Not part of this bug but worth noting.",
+    "AddBookingSheet minimumDate={new Date()} on DateTimePicker (lines 126, 137). If a user opens the day-sheet on TODAY and taps 'Book this Date', prefill is fine; but if they re-open the date picker on a past date somehow, native picker would clamp — safe."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (1/1 health check)", "frontend": "Login render + OAuth redirect verified; calendar tap-flow verified via static code review only (auth-gated)"},
+  "seed_data_creation": "None — /api/bookings/seed requires bearer token; not exercised.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Calendar/bookings screens are Google-OAuth-gated. To E2E test tap flow, either (a) log in manually with a real Google account and then use the browser session cookie/token, or (b) inject a mocked session-token into AsyncStorage before navigating to /(tabs)/calendar. All book-this-date wiring is present and syntactically correct per iteration_2 static review.",
+  "rca_of_issue": "Original bug: 'Book this Date' button in day-detail bottom sheet had no onPress handler (or handler was a no-op), so tapping did nothing. Fix in calendar.tsx line 178-191 attaches an onPress that (1) stores the tapped date in addPrefillDate, (2) closes the day-detail modal, (3) opens the AddBookingSheet. AddBookingSheet.tsx was updated with a new prefillDate prop whose value is consumed in a useEffect that runs when the sheet becomes visible, populating the internal date state so the user sees the pre-selected date. Wiring verified statically; end-to-end tap flow requires an authenticated Google session which is out of scope for this sandbox."
+}

@@ -12,9 +12,10 @@ type Props = {
   onClose: () => void;
   onSubmit: (data: Partial<Booking>) => Promise<void>;
   existing?: Booking | null;
+  prefillDate?: Date | null;
 };
 
-export default function AddBookingSheet({ visible, onClose, onSubmit, existing }: Props) {
+export default function AddBookingSheet({ visible, onClose, onSubmit, existing, prefillDate }: Props) {
   const [clientName, setClientName] = useState('');
   const [phone, setPhone] = useState('');
   const [eventType, setEventType] = useState('Wedding');
@@ -32,14 +33,14 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing }
       setClientName(existing?.clientName || '');
       setPhone(existing?.phone || '');
       setEventType(existing?.eventType || 'Wedding');
-      setDate(existing?.eventDate ? new Date(existing.eventDate) : null);
+      setDate(existing?.eventDate ? new Date(existing.eventDate) : (prefillDate || null));
       setFunctionTime((existing?.functionTime as any) || 'Day');
       setGuestCount(existing ? String(existing.guestCount) : '');
       setTotalAmount(existing ? String(existing.totalAmount) : '');
       setAdvancePaid(existing ? String(existing.advancePaid || 0) : '');
       setNotes(existing?.notes || '');
     }
-  }, [visible, existing]);
+  }, [visible, existing, prefillDate]);
 
   const isValid = clientName.trim() && phone.trim().length >= 10 && date && totalAmount;
 
