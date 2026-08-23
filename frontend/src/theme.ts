@@ -57,8 +57,8 @@ export const formatINRCompact = (v: number): string => {
   return `₹${n}`;
 };
 
-// Full form with ₹ prefix, e.g. ₹1,50,000
-export const formatINRFull = (v: number): string => `₹${formatINR(v)}`;
+// Full form with ₹ prefix and /- suffix, e.g. ₹3,80,000/-
+export const formatINRFull = (v: number): string => `₹${formatINR(v)}/-`;
 
 export const formatDate = (iso: string): string => {
   const d = new Date(iso);

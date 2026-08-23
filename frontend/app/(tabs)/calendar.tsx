@@ -60,7 +60,7 @@ export default function CalendarScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 160 }}>
         {/* Month nav */}
         <View style={styles.navRow}>
           <Pressable testID="prev-month" onPress={() => setFocused(new Date(y, m - 1, 1))} style={styles.navBtn}>

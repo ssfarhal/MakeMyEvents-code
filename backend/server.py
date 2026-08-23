@@ -46,6 +46,11 @@ class AuthResponse(BaseModel):
     user: User
 
 
+class Payment(BaseModel):
+    amount: float
+    date: str  # ISO datetime
+
+
 class Booking(BaseModel):
     id: Optional[str] = None
     user_id: str
@@ -57,9 +62,14 @@ class Booking(BaseModel):
     guestCount: int = 0
     totalAmount: float = 0.0
     advancePaid: float = 0.0
+    payments: List[Payment] = []
     status: str = "confirmed"
     notes: Optional[str] = ""
     createdAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class PaymentCreate(BaseModel):
+    amount: float
 
 
 class BookingCreate(BaseModel):
@@ -199,9 +209,39 @@ async def list_bookings(authorization: Optional[str] = Header(default=None)):
 async def create_booking(payload: BookingCreate, authorization: Optional[str] = Header(default=None)):
     user = await get_current_user(authorization)
     bid = await next_booking_id(user["user_id"])
-    booking = Booking(id=bid, user_id=user["user_id"], **payload.dict())
+    data = payload.dict()
+    payments: list = []
+    if float(data.get("advancePaid", 0) or 0) > 0:
+        payments = [{"amount": float(data["advancePaid"]),
+                     "date": datetime.now(timezone.utc).isoformat()}]
+    booking = Booking(id=bid, user_id=user["user_id"], payments=payments, **data)
     await db.bookings.insert_one(booking.dict())
     return booking
+
+
+@api_router.delete("/bookings/{booking_id}/payments/{index}", response_model=Booking)
+async def delete_payment(booking_id: str, index: int,
+                         authorization: Optional[str] = Header(default=None)):
+    user = await get_current_user(authorization)
+    doc = await db.bookings.find_one(
+        {"id": booking_id, "user_id": user["user_id"]}, {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    payments = doc.get("payments") or []
+    if index < 0 or index >= len(payments):
+        raise HTTPException(status_code=404, detail="Payment entry not found")
+    removed_amount = float(payments[index].get("amount", 0))
+    payments.pop(index)
+    new_advance = max(0.0, float(doc.get("advancePaid", 0)) - removed_amount)
+    await db.bookings.update_one(
+        {"id": booking_id, "user_id": user["user_id"]},
+        {"$set": {"payments": payments, "advancePaid": new_advance}},
+    )
+    updated = await db.bookings.find_one(
+        {"id": booking_id, "user_id": user["user_id"]}, {"_id": 0}
+    )
+    return Booking(**updated)
 
 
 @api_router.patch("/bookings/{booking_id}", response_model=Booking)
@@ -227,6 +267,36 @@ async def delete_booking(booking_id: str, authorization: Optional[str] = Header(
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Booking not found")
     return {"ok": True}
+
+
+@api_router.post("/bookings/{booking_id}/payments", response_model=Booking)
+async def add_payment(booking_id: str, payload: PaymentCreate,
+                      authorization: Optional[str] = Header(default=None)):
+    user = await get_current_user(authorization)
+    if payload.amount is None or payload.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be > 0")
+    doc = await db.bookings.find_one(
+        {"id": booking_id, "user_id": user["user_id"]}, {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    balance = float(doc.get("totalAmount", 0)) - float(doc.get("advancePaid", 0))
+    if payload.amount > balance + 0.01:
+        raise HTTPException(status_code=400,
+                            detail=f"Amount exceeds pending balance ({balance})")
+    entry = {"amount": float(payload.amount),
+             "date": datetime.now(timezone.utc).isoformat()}
+    await db.bookings.update_one(
+        {"id": booking_id, "user_id": user["user_id"]},
+        {
+            "$push": {"payments": entry},
+            "$inc": {"advancePaid": float(payload.amount)},
+        },
+    )
+    updated = await db.bookings.find_one(
+        {"id": booking_id, "user_id": user["user_id"]}, {"_id": 0}
+    )
+    return Booking(**updated)
 
 
 @api_router.post("/bookings/seed", response_model=List[Booking])
@@ -258,9 +328,14 @@ async def seed_bookings(authorization: Optional[str] = Header(default=None)):
     for (name, phone, etype, days_off, ftime, guests, total, adv, status, notes) in samples:
         d = now + timedelta(days=days_off)
         bid = await next_booking_id(user["user_id"])
+        payments = []
+        if float(adv) > 0:
+            payments = [{"amount": float(adv),
+                          "date": (now - timedelta(days=abs(days_off) + 3)).isoformat()}]
         b = Booking(id=bid, user_id=user["user_id"], clientName=name, phone=phone, eventType=etype,
                     eventDate=d.date().isoformat(), functionTime=ftime, guestCount=guests,
-                    totalAmount=float(total), advancePaid=float(adv), status=status, notes=notes)
+                    totalAmount=float(total), advancePaid=float(adv), payments=payments,
+                    status=status, notes=notes)
         to_insert.append(b.dict())
     await db.bookings.insert_many(to_insert)
     return [Booking(**d) for d in to_insert]

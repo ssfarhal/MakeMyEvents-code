@@ -15,7 +15,7 @@ type Filter = 'all' | 'upcoming' | 'completed' | 'pending';
 
 export default function Bookings() {
   const { user } = useAuth();
-  const { bookings, refresh, loading, addBooking, updateBooking, deleteBooking, seed } = useBookings();
+  const { bookings, refresh, loading, addBooking, updateBooking, addPayment, deletePayment, deleteBooking, seed } = useBookings();
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -119,7 +119,7 @@ export default function Bookings() {
       <Text style={styles.countText}>{filtered.length} booking{filtered.length !== 1 ? 's' : ''}</Text>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingTop: 0, paddingBottom: 120 }}
+        contentContainerStyle={{ padding: 16, paddingTop: 0, paddingBottom: 160 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={Colors.primary} />}
       >
         {loading && bookings.length === 0 ? (
@@ -162,6 +162,8 @@ export default function Bookings() {
         onClose={() => setDetail(null)}
         onEdit={(b) => { setEditing(b); setShowAdd(true); }}
         onUpdate={updateBooking}
+        onAddPayment={addPayment}
+        onDeletePayment={deletePayment}
         onDelete={deleteBooking}
       />
     </SafeAreaView>
@@ -179,6 +181,6 @@ const styles = StyleSheet.create({
   chipCount: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, backgroundColor: Colors.primary + '22' },
   chipCountText: { fontSize: 11, fontWeight: '700', color: Colors.primary },
   countText: { fontSize: 12, color: Colors.muted, paddingHorizontal: 16, paddingBottom: 4, fontWeight: '500' },
-  fab: { position: 'absolute', right: 16, bottom: 88, backgroundColor: Colors.primary, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8 },
+  fab: { position: 'absolute', right: 16, bottom: 100, backgroundColor: Colors.primary, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8 },
   fabText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

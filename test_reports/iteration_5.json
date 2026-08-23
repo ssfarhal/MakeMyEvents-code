@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 5 verified the three-feature addition (Payment ledger + full-digit KPI + Custom date-range report). All 39/39 pytest cases pass: 15 new + 24 regression from previous iteration. Backend: static + runtime checks confirm Payment/PaymentCreate models, Booking.payments field, POST /api/bookings/{id}/payments endpoint with correct auth/validation/atomic $push+$inc logic (401 without bearer, 400 for amount<=0, 404 for missing booking, 400 for amount>balance), and seed_bookings now inserts an initial Payment when advance>0. Frontend static: theme.ts formatINRFull returns '₹...,.../-', dashboard.tsx uses formatINRFull (not compact) + imports/renders ReportModal with testID report-btn, BookingDetailSheet.tsx renders 'Payment History' iterating booking.payments and calls onAddPayment(booking.id, amt), invoice.ts has paymentsSectionHtml + buildReportHtml (A4 landscape, 4 KPI tiles, Payments column) + exported shareReport, and ReportModal.tsx has all required testIDs (report-start-date, report-end-date, generate-report-btn, and 4 preset testIDs via `report-preset-${p.key}` template). Live UI smoke: login screen renders with 'Continue with Google' button, no red screen. Full E2E collect-payment / generate-report flows are Google-OAuth-gated and cannot be tested end-to-end from pytest — recommended for main-agent manual verification.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_makemyevents.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Main agent to manually log in with a Google account and: (a) seed bookings, open one with advance>0 in the detail sheet and confirm 'Payment History' shows the initial advance row + timestamp, (b) tap 'Collect Payment', enter a partial amount and confirm a NEW ledger row is appended (both in the sheet and in the shared PDF invoice's Payment History table), (c) confirm dashboard KPI values now show full digits like '₹3,80,000/-' (not '₹3.8L'), (d) tap the new report-btn (document icon) in the appbar, pick a range (or a preset) and confirm the landscape PDF opens with 4 KPI tiles + all bookings including the Payments column."
+  ],
+  "critical_code_review_comments": [
+    "server.py::add_payment correctly performs auth first, then payload validation (amount<=0 → 400), booking lookup (404), balance check (>balance → 400) and finally an atomic single-doc update with $push payments + $inc advancePaid. Race-safe for concurrent collect operations on the same booking.",
+    "server.py seed_bookings builds an initial Payment ONLY when adv>0 and stamps it with a plausible past date (now - |days_off|-3 days). Fully-paid completed booking (adv=180000) also gets a proper ledger entry.",
+    "theme.ts: formatINRCompact is still exported (may be dead code after dashboard migration) — safe to leave for now, but consider removing in a future cleanup.",
+    "BookingDetailSheet.tsx correctly clamps collect amount client-side (amt>balance → Alert) BEFORE calling onAddPayment, so the 400 from backend is a defense-in-depth backstop.",
+    "ReportModal.tsx uses native @react-native-community/datetimepicker with proper iOS wrap-in-Modal and Android inline-picker pattern; onChange handles the 'dismissed' event correctly.",
+    "invoice.ts buildReportHtml sorts filtered bookings by eventDate ascending and correctly falls back to 'Initial advance' row when payments[] is empty but advancePaid>0 — matches the sheet behaviour.",
+    "Minor: FastAPI on_event('startup'/'shutdown') deprecated warnings persist (not blocking). Suggest lifespan migration on next backend refactor."
+  ],
+  "updated_files": ["/app/backend/tests/test_makemyevents.py"],
+  "success_rate": {"backend": "100% (39/39 pytest)", "frontend": "Static + login-screen smoke passed; full flows require Google-OAuth"},
+  "seed_data_creation": "None persisted. Only the in-memory _FakeDB monkeypatch is used for the atomic id-sequencing unit test carried over from iteration 4.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The Payments and Report flows are Google-OAuth-gated end-to-end. Iteration 5 extends /app/backend/tests/test_makemyevents.py with: (i) auth-guard tests on POST /api/bookings/{id}/payments (missing bearer, bad token, zero-amount w/o bearer), (ii) static Pydantic/model checks (class Payment, Booking.payments: List[Payment]=[], class PaymentCreate), (iii) function-body extraction on add_payment asserting the 400/404 branches + $push/$inc atomic update, (iv) seed_bookings check that payments[] is populated when adv>0, (v) frontend static checks: theme formatINRFull shape, dashboard KpiCard uses formatINRFull (never Compact), ReportModal is imported & mounted with testID report-btn, BookingDetailSheet has 'Payment History' + booking.payments.map + onAddPayment, invoice.ts has buildReportHtml with A4 landscape + 4 KPI tiles + <th>Payments</th> + exported shareReport, ReportModal.tsx has the required testIDs (individual date buttons + generate btn + template-literal preset testIDs via `report-preset-${p.key}`). Reuse as regression on the next iteration.",
+  "rca_of_issue": "N/A — verification-only iteration for a feature-addition PR. All 39 tests pass; login screen renders cleanly with the Google sign-in button intact."
+}

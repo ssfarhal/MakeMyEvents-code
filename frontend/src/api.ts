@@ -62,9 +62,15 @@ export const api = {
   createBooking: (data: any) => request('/bookings', { method: 'POST', body: JSON.stringify(data) }),
   updateBooking: (id: string, data: any) =>
     request(`/bookings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  addPayment: (id: string, amount: number) =>
+    request(`/bookings/${id}/payments`, { method: 'POST', body: JSON.stringify({ amount }) }),
+  deletePayment: (id: string, index: number) =>
+    request(`/bookings/${id}/payments/${index}`, { method: 'DELETE' }),
   deleteBooking: (id: string) => request(`/bookings/${id}`, { method: 'DELETE' }),
   seed: () => request('/bookings/seed', { method: 'POST' }),
 };
+
+export type Payment = { amount: number; date: string };
 
 export type Booking = {
   id: string;
@@ -76,6 +82,7 @@ export type Booking = {
   guestCount: number;
   totalAmount: number;
   advancePaid: number;
+  payments?: Payment[];
   status: string;
   notes?: string;
 };

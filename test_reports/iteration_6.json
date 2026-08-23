@@ -1,0 +1,25 @@
+{
+  "summary": "Iteration 6 fixes verified: (1) DELETE /api/bookings/{id}/payments/{index} endpoint present, auth-gated (401 w/o token), 404 for missing booking or bad index; monkeypatched logic test confirms advancePaid is reduced by the removed entry's amount, payments array shrinks by 1, and advancePaid is clamped at 0 via max(0.0, ...). (2) create_booking seeds payments=[{amount:advancePaid, date:now}] when advancePaid>0. (3) Frontend static grep confirms: api.deletePayment(id, index) with DELETE method, BookingsContext exposes deletePayment in provider value, BookingDetailSheet renders trash button with testID `delete-payment-${i}` and calls onDeletePayment(booking.id, i), AddBookingSheet uses KeyboardAvoidingView behavior 'padding'/'height' and ScrollView paddingBottom=340, sheet maxHeight='95%', (tabs)/_layout.tsx uses useSafeAreaInsets() for tabBarStyle padding/height, dashboard/bookings/calendar ScrollView paddingBottom>=160. (4) Login screen still renders with 'Continue with Google' button and MakeMyEvents brand on the public URL. 52/52 pytest cases pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_makemyevents.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py uses FastAPI on_event('startup'/'shutdown') which is deprecated; consider migrating to lifespan handlers (non-blocking, warning only)."
+  ],
+  "updated_files": ["/app/backend/tests/test_makemyevents.py"],
+  "success_rate": {"backend": "100% (52/52)", "frontend": "100% (login renders, static grep pass)"},
+  "seed_data_creation": "None — DELETE endpoint tested via monkeypatched in-memory fake db (async).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "backend_test file uses pytest-xdist auto-run. 52 tests cover payment ledger, delete-payment, invoice T&C, next_booking_id sequencing, and FE static-grep for iteration 6 fixes.",
+  "rca_of_issue": "N/A — verifying already-applied fixes."
+}

@@ -7,6 +7,8 @@ type Ctx = {
   refresh: () => Promise<void>;
   addBooking: (data: Partial<Booking>) => Promise<void>;
   updateBooking: (id: string, data: Partial<Booking>) => Promise<void>;
+  addPayment: (id: string, amount: number) => Promise<void>;
+  deletePayment: (id: string, index: number) => Promise<void>;
   deleteBooking: (id: string) => Promise<void>;
   seed: () => Promise<void>;
 };
@@ -40,6 +42,16 @@ export function BookingsProvider({ children }: { children: React.ReactNode }) {
     setBookings((prev) => prev.map((b) => (b.id === id ? updated : b)));
   }, []);
 
+  const addPayment = useCallback(async (id: string, amount: number) => {
+    const updated = await api.addPayment(id, amount);
+    setBookings((prev) => prev.map((b) => (b.id === id ? updated : b)));
+  }, []);
+
+  const deletePayment = useCallback(async (id: string, index: number) => {
+    const updated = await api.deletePayment(id, index);
+    setBookings((prev) => prev.map((b) => (b.id === id ? updated : b)));
+  }, []);
+
   const deleteBooking = useCallback(async (id: string) => {
     await api.deleteBooking(id);
     setBookings((prev) => prev.filter((b) => b.id !== id));
@@ -51,7 +63,7 @@ export function BookingsProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <BookingsContext.Provider value={{ bookings, loading, refresh, addBooking, updateBooking, deleteBooking, seed }}>
+    <BookingsContext.Provider value={{ bookings, loading, refresh, addBooking, updateBooking, addPayment, deletePayment, deleteBooking, seed }}>
       {children}
     </BookingsContext.Provider>
   );

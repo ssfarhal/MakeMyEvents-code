@@ -2,12 +2,14 @@ import React from 'react';
 import { Tabs, Redirect } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { ActivityIndicator, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/src/AuthContext';
 import { Colors } from '@/src/theme';
 import { BookingsProvider } from '@/src/BookingsContext';
 
 export default function TabsLayout() {
   const { user, loading } = useAuth();
+  const insets = useSafeAreaInsets();
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
@@ -27,8 +29,8 @@ export default function TabsLayout() {
             backgroundColor: '#fff',
             borderTopColor: Colors.outlineVariant,
             paddingTop: 8,
-            paddingBottom: 8,
-            height: 72,
+            paddingBottom: Math.max(insets.bottom, 10),
+            height: 60 + Math.max(insets.bottom, 10),
           },
           tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2 },
         }}

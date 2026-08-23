@@ -76,7 +76,7 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.backdrop}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.backdrop} keyboardVerticalOffset={0}>
         <Pressable style={{ flex: 1 }} onPress={onClose} />
         <View style={styles.sheet}>
           <View style={styles.handle} />
@@ -84,7 +84,11 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
             <Text style={styles.title}>{existing ? 'Edit Booking' : 'New Booking'}</Text>
             <Pressable onPress={onClose} testID="close-booking-sheet"><Ionicons name="close" size={22} color={Colors.onSurfaceVariant} /></Pressable>
           </View>
-          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            contentContainerStyle={{ padding: 20, paddingBottom: 340 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator
+          >
             <Text style={styles.section}>Client Details</Text>
             <Field icon="person-outline" placeholder="Client Name *" value={clientName} onChangeText={setClientName} testID="input-clientName" />
             <Field icon="call-outline" placeholder="Phone (10 digits) *" value={phone} onChangeText={(v: string) => setPhone(v.replace(/\D/g, '').slice(0, 10))} keyboardType="phone-pad" testID="input-phone" />
@@ -183,7 +187,7 @@ const fs = StyleSheet.create({
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%' },
+  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '95%', flex: 1 },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: '#CCC', marginTop: 10 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
   title: { fontSize: 20, fontWeight: '800', color: Colors.onSurface },

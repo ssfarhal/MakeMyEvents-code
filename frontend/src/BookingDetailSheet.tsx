@@ -6,6 +6,16 @@ import { Colors, eventTypeColor, formatINRFull, formatDate } from './theme';
 import { Booking } from './api';
 import { shareInvoice } from './invoice';
 
+function formatPaymentDate(iso: string): string {
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mn = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} • ${hh}:${mn}`;
+}
+
 const eventIcon = (t: string): any => {
   switch ((t || '').toLowerCase()) {
     case 'wedding': return 'heart';
@@ -33,10 +43,12 @@ type Props = {
   onClose: () => void;
   onEdit: (b: Booking) => void;
   onUpdate: (id: string, data: Partial<Booking>) => Promise<void>;
+  onAddPayment: (id: string, amount: number) => Promise<void>;
+  onDeletePayment: (id: string, index: number) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 };
 
-export default function BookingDetailSheet({ booking, hallName, onClose, onEdit, onUpdate, onDelete }: Props) {
+export default function BookingDetailSheet({ booking, hallName, onClose, onEdit, onUpdate, onAddPayment, onDeletePayment, onDelete }: Props) {
   const [collectVisible, setCollectVisible] = useState(false);
   const [collectAmount, setCollectAmount] = useState('');
   const [collectBusy, setCollectBusy] = useState(false);
@@ -80,8 +92,7 @@ export default function BookingDetailSheet({ booking, hallName, onClose, onEdit,
     }
     setCollectBusy(true);
     try {
-      const newAdvance = advance + amt;
-      await onUpdate(booking.id, { advancePaid: newAdvance });
+      await onAddPayment(booking.id, amt);
       setCollectVisible(false);
       setCollectAmount('');
     } catch (e: any) {
@@ -192,6 +203,45 @@ export default function BookingDetailSheet({ booking, hallName, onClose, onEdit,
                   <Ionicons name="cash" size={16} color="#fff" />
                   <Text style={styles.collectText}>Collect Payment</Text>
                 </Pressable>
+              )}
+            </View>
+
+            {/* Payment history / ledger */}
+            <Text style={styles.sectionTitle}>Payment History</Text>
+            <View style={styles.ledgerCard}>
+              {(booking.payments && booking.payments.length > 0) ? (
+                booking.payments.map((p, i) => (
+                  <View key={i} style={styles.ledgerRow}>
+                    <View style={styles.ledgerIcon}><Ionicons name="cash-outline" size={14} color={Colors.success} /></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.ledgerAmount}>{formatINRFull(p.amount)}</Text>
+                      <Text style={styles.ledgerDate}>{formatPaymentDate(p.date)}</Text>
+                    </View>
+                    <Text style={styles.ledgerBadge}>#{i + 1}</Text>
+                    <Pressable
+                      testID={`delete-payment-${i}`}
+                      onPress={() => {
+                        Alert.alert('Delete payment?', `Remove ${formatINRFull(p.amount)} from history?`, [
+                          { text: 'Cancel' },
+                          { text: 'Delete', style: 'destructive', onPress: () => onDeletePayment(booking.id, i) },
+                        ]);
+                      }}
+                      style={styles.ledgerDel}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={Colors.error} />
+                    </Pressable>
+                  </View>
+                ))
+              ) : advance > 0 ? (
+                <View style={styles.ledgerRow}>
+                  <View style={styles.ledgerIcon}><Ionicons name="cash-outline" size={14} color={Colors.success} /></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.ledgerAmount}>{formatINRFull(advance)}</Text>
+                    <Text style={styles.ledgerDate}>Initial advance</Text>
+                  </View>
+                </View>
+              ) : (
+                <Text style={styles.ledgerEmpty}>No payments recorded yet.</Text>
               )}
             </View>
 
@@ -368,4 +418,12 @@ const styles = StyleSheet.create({
   presetAmt: { fontSize: 12, fontWeight: '700', color: Colors.primary, marginTop: 2 },
   collectSubmit: { backgroundColor: Colors.success, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
   collectSubmitText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  ledgerCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: Colors.outlineVariant, padding: 4, marginBottom: 20 },
+  ledgerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.outlineVariant },
+  ledgerIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.successContainer, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  ledgerAmount: { fontSize: 14, fontWeight: '800', color: Colors.onSurface },
+  ledgerDate: { fontSize: 11, color: Colors.muted, marginTop: 2 },
+  ledgerBadge: { fontSize: 10, fontWeight: '800', color: Colors.primary, backgroundColor: Colors.primaryContainer, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  ledgerDel: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.errorContainer, marginLeft: 8 },
+  ledgerEmpty: { fontSize: 12, color: Colors.muted, textAlign: 'center', padding: 20 },
 });

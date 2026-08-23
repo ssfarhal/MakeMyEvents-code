@@ -6,21 +6,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/src/AuthContext';
 import { useBookings } from '@/src/BookingsContext';
-import { Colors, formatFullDate, formatINRCompact } from '@/src/theme';
+import { Colors, formatFullDate, formatINRFull } from '@/src/theme';
 import { BookingCard } from '@/src/BookingCard';
 import AddBookingSheet from '@/src/AddBookingSheet';
 import BookingDetailSheet from '@/src/BookingDetailSheet';
 import { EmptyState } from '@/src/EmptyState';
 import SettingsBottomSheet from '@/src/SettingsBottomSheet';
+import ReportModal from '@/src/ReportModal';
 import { Booking } from '@/src/api';
 
 export default function Dashboard() {
   const { user, signOut, updateHallName } = useAuth();
-  const { bookings, refresh, addBooking, updateBooking, deleteBooking, seed, loading } = useBookings();
+  const { bookings, refresh, addBooking, updateBooking, addPayment, deletePayment, deleteBooking, seed, loading } = useBookings();
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Booking | null>(null);
   const [detail, setDetail] = useState<Booking | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const router = useRouter();
 
   React.useEffect(() => {
@@ -62,6 +64,9 @@ export default function Dashboard() {
             <Ionicons name="sparkles-outline" size={20} color={Colors.primary} />
           </Pressable>
         )}
+        <Pressable testID="report-btn" onPress={() => setShowReport(true)} style={styles.iconBtn}>
+          <Ionicons name="document-text-outline" size={20} color={Colors.primary} />
+        </Pressable>
         <Pressable testID="settings-btn" onPress={() => setShowSettings(true)} style={styles.iconBtn}>
           <Ionicons name="settings-outline" size={20} color={Colors.primary} />
         </Pressable>
@@ -71,7 +76,7 @@ export default function Dashboard() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 160 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={Colors.primary} />}
       >
         {/* Hero header */}
@@ -89,9 +94,9 @@ export default function Dashboard() {
 
         {/* KPI row */}
         <View style={styles.kpiRow}>
-          <KpiCard color={Colors.primary} bg={Colors.primaryContainer} icon="cash" label={'Monthly\nRevenue'} value={formatINRCompact(kpis.monthlyRevenue)} />
+          <KpiCard color={Colors.primary} bg={Colors.primaryContainer} icon="cash" label={'Monthly\nRevenue'} value={formatINRFull(kpis.monthlyRevenue)} />
           <KpiCard color={Colors.secondary} bg={Colors.secondaryContainer} icon="calendar" label={'Upcoming\nEvents'} value={String(kpis.upcomingCount)} />
-          <KpiCard color={Colors.warning} bg={Colors.warningContainer} icon="wallet" label={'Pending\nBalance'} value={formatINRCompact(kpis.pendingBalance)} isAlert={kpis.pendingBalance > 0} />
+          <KpiCard color={Colors.warning} bg={Colors.warningContainer} icon="wallet" label={'Pending\nBalance'} value={formatINRFull(kpis.pendingBalance)} isAlert={kpis.pendingBalance > 0} />
         </View>
 
         <View style={styles.sectionRow}>
@@ -137,6 +142,8 @@ export default function Dashboard() {
         onClose={() => setDetail(null)}
         onEdit={(b) => { setEditing(b); setShowAdd(true); }}
         onUpdate={updateBooking}
+        onAddPayment={addPayment}
+        onDeletePayment={deletePayment}
         onDelete={deleteBooking}
       />
 
@@ -145,6 +152,13 @@ export default function Dashboard() {
         initialName={user?.hallName || ''}
         onClose={() => setShowSettings(false)}
         onSave={async (name) => { await updateHallName(name); }}
+      />
+
+      <ReportModal
+        visible={showReport}
+        onClose={() => setShowReport(false)}
+        bookings={bookings}
+        hallName={user?.hallName}
       />
     </SafeAreaView>
   );
@@ -202,6 +216,6 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 40, gap: 8 },
   emptyTitle: { fontSize: 14, fontWeight: '700', color: Colors.onSurface },
   emptySub: { fontSize: 12, color: Colors.muted, textAlign: 'center' },
-  fab: { position: 'absolute', right: 16, bottom: 88, backgroundColor: Colors.primary, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 6, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+  fab: { position: 'absolute', right: 16, bottom: 100, backgroundColor: Colors.primary, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 6, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
   fabText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

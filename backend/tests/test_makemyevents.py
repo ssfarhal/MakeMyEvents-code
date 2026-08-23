@@ -82,12 +82,120 @@ def test_bookings_bad_token_401(s):
     assert r.status_code == 401
 
 
+# ---------- Payments endpoint auth-gating (iteration 5) ----------
+def test_add_payment_requires_bearer(s):
+    r = s.post(f"{API}/bookings/MME-001/payments", json={"amount": 1000}, timeout=15)
+    assert r.status_code == 401
+
+
+def test_add_payment_bad_token_401(s):
+    r = s.post(f"{API}/bookings/MME-001/payments", json={"amount": 1000},
+               headers={"Authorization": "Bearer nope"}, timeout=15)
+    assert r.status_code == 401
+
+
+def test_add_payment_zero_amount_still_401_without_auth(s):
+    # Without bearer -> 401 (auth is checked BEFORE body validation)
+    r = s.post(f"{API}/bookings/MME-001/payments", json={"amount": 0}, timeout=15)
+    assert r.status_code == 401
+
+
 # ---------- Static file content verification (fixes in this iteration) ----------
 import re
 from pathlib import Path
 
 SERVER_PY = Path("/app/backend/server.py").read_text(encoding="utf-8")
 INVOICE_TS = Path("/app/frontend/src/invoice.ts").read_text(encoding="utf-8")
+THEME_TS = Path("/app/frontend/src/theme.ts").read_text(encoding="utf-8")
+DASHBOARD_TSX = Path("/app/frontend/app/(tabs)/dashboard.tsx").read_text(encoding="utf-8")
+DETAIL_TSX = Path("/app/frontend/src/BookingDetailSheet.tsx").read_text(encoding="utf-8")
+REPORT_MODAL = Path("/app/frontend/src/ReportModal.tsx").read_text(encoding="utf-8")
+
+
+# ---------- Iteration 5: Payment ledger + KPI full digits + custom report ----------
+def test_payment_model_defined():
+    assert re.search(r"class Payment\(BaseModel\):\s*\n\s*amount:\s*float\s*\n\s*date:\s*str", SERVER_PY)
+
+
+def test_booking_has_payments_list():
+    assert re.search(r"payments:\s*List\[Payment\]\s*=\s*\[\]", SERVER_PY)
+
+
+def test_payment_create_model_defined():
+    assert re.search(r"class PaymentCreate\(BaseModel\):\s*\n\s*amount:\s*float", SERVER_PY)
+
+
+def test_add_payment_endpoint_present():
+    assert '@api_router.post("/bookings/{booking_id}/payments"' in SERVER_PY
+    assert "async def add_payment(" in SERVER_PY
+
+
+def test_add_payment_logic_handles_edge_cases():
+    body = _extract_fn_body(SERVER_PY, "add_payment")
+    assert "payload.amount <= 0" in body, "must reject amount <= 0"
+    assert "status_code=400" in body, "must return 400 for invalid amounts"
+    assert "status_code=404" in body, "must return 404 for missing booking"
+    assert "$push" in body and "payments" in body, "must $push payment entry"
+    assert "$inc" in body and "advancePaid" in body, "must $inc advancePaid"
+    assert "exceeds pending balance" in body or "balance" in body.lower()
+
+
+def test_seed_bookings_seeds_initial_payment_when_advance_gt_zero():
+    body = _extract_fn_body(SERVER_PY, "seed_bookings")
+    assert "if float(adv) > 0" in body
+    assert 'payments = [{"amount": float(adv)' in body
+    assert "payments=payments" in body
+
+
+# ---------- Frontend static checks ----------
+def test_theme_format_inr_full_returns_rupee_with_dash_suffix():
+    assert re.search(r"formatINRFull\s*=\s*\(v:\s*number\)\s*:\s*string\s*=>\s*`₹\$\{formatINR\(v\)\}/-`", THEME_TS)
+
+
+def test_dashboard_uses_format_inr_full_not_compact():
+    assert "formatINRFull" in DASHBOARD_TSX
+    # KPI rendering line must not use compact
+    kpi_matches = re.findall(r"KpiCard[^>]*value=\{formatINR\w+\(", DASHBOARD_TSX)
+    assert kpi_matches, "no KpiCard value formatter found"
+    assert all("formatINRCompact" not in m for m in kpi_matches), \
+        f"KPI cards still use formatINRCompact: {kpi_matches}"
+
+
+def test_dashboard_imports_and_uses_report_modal():
+    assert "import ReportModal" in DASHBOARD_TSX
+    assert '<ReportModal' in DASHBOARD_TSX
+    assert 'testID="report-btn"' in DASHBOARD_TSX
+    assert "setShowReport(true)" in DASHBOARD_TSX
+
+
+def test_booking_detail_sheet_uses_add_payment_and_shows_history():
+    assert "onAddPayment" in DETAIL_TSX
+    assert "await onAddPayment(booking.id, amt)" in DETAIL_TSX
+    assert "Payment History" in DETAIL_TSX
+    assert "booking.payments" in DETAIL_TSX
+    assert "booking.payments.map" in DETAIL_TSX
+
+
+def test_invoice_ts_has_payment_history_and_report_functions():
+    assert "paymentsSectionHtml" in INVOICE_TS
+    assert "Payment History" in INVOICE_TS
+    assert "buildReportHtml" in INVOICE_TS
+    assert "export async function shareReport" in INVOICE_TS
+    # landscape A4
+    assert "A4 landscape" in INVOICE_TS
+    # KPI tiles (4)
+    kpi_tiles = re.findall(r'class="kpi"', INVOICE_TS)
+    assert len(kpi_tiles) >= 4, f"expected >=4 KPI tiles in report, found {len(kpi_tiles)}"
+    # payments column header
+    assert "<th>Payments</th>" in INVOICE_TS
+
+
+def test_report_modal_has_required_testids():
+    for tid in ["report-start-date", "report-end-date", "generate-report-btn",
+                "report-preset-this-month", "report-preset-last-month",
+                "report-preset-last-3", "report-preset-this-year"]:
+        assert f'testID="{tid}"' in REPORT_MODAL or f"testID={{`{tid}`}}" in REPORT_MODAL or f"`report-preset-${{p.key}}`" in REPORT_MODAL, \
+            f"missing testID {tid} in ReportModal"
 
 
 # server.py — booking id refactor
@@ -207,3 +315,187 @@ def test_next_booking_id_sequences_mme_001_then_002(monkeypatch):
     assert id2 == "MME-002", f"expected MME-002, got {id2}"
     # per-user counter is independent
     assert id_other == "MME-001", f"expected per-user reset MME-001, got {id_other}"
+
+
+# ---------- Iteration 6: DELETE payment + create_booking seeds payments + FE fixes ----------
+ADDSHEET_TSX = Path("/app/frontend/src/AddBookingSheet.tsx").read_text(encoding="utf-8")
+TABS_LAYOUT_TSX = Path("/app/frontend/app/(tabs)/_layout.tsx").read_text(encoding="utf-8")
+BOOKINGS_TSX = Path("/app/frontend/app/(tabs)/bookings.tsx").read_text(encoding="utf-8")
+CALENDAR_TSX = Path("/app/frontend/app/(tabs)/calendar.tsx").read_text(encoding="utf-8")
+API_TS = Path("/app/frontend/src/api.ts").read_text(encoding="utf-8")
+CTX_TSX = Path("/app/frontend/src/BookingsContext.tsx").read_text(encoding="utf-8")
+
+
+# Backend behaviour - DELETE payment endpoint auth-gating
+def test_delete_payment_requires_bearer(s):
+    r = s.delete(f"{API}/bookings/MME-001/payments/0", timeout=15)
+    assert r.status_code == 401
+
+
+def test_delete_payment_bad_token_401(s):
+    r = s.delete(f"{API}/bookings/MME-001/payments/0",
+                 headers={"Authorization": "Bearer nope"}, timeout=15)
+    assert r.status_code == 401
+
+
+# Static: server.py has route defined properly
+def test_delete_payment_endpoint_present():
+    assert '@api_router.delete("/bookings/{booking_id}/payments/{index}"' in SERVER_PY
+    assert "async def delete_payment(" in SERVER_PY
+
+
+def test_delete_payment_logic_ok():
+    body = _extract_fn_body(SERVER_PY, "delete_payment")
+    assert "status_code=404" in body, "should 404 on missing booking / bad index"
+    assert "Booking not found" in body
+    assert "Payment entry not found" in body
+    assert "payments.pop(index)" in body
+    assert "$set" in body and "payments" in body and "advancePaid" in body
+    assert "max(0.0" in body, "advancePaid must be clamped at 0"
+
+
+# create_booking seeds payments with initial advance entry
+def test_create_booking_seeds_initial_payment():
+    body = _extract_fn_body(SERVER_PY, "create_booking")
+    assert 'float(data.get("advancePaid", 0) or 0) > 0' in body
+    assert 'payments = [{"amount": float(data["advancePaid"])' in body
+    assert "payments=payments" in body
+
+
+# Logic test: monkeypatched delete_payment reduces advancePaid and shrinks payments
+def test_delete_payment_updates_advance_and_removes_entry(monkeypatch):
+    import asyncio
+    from backend import server as srv
+
+    store = {
+        "bookings": {
+            ("MME-100", "user_a"): {
+                "id": "MME-100", "user_id": "user_a",
+                "clientName": "X", "phone": "1", "eventType": "Wedding",
+                "eventDate": "2026-02-01", "functionTime": "Day", "guestCount": 0,
+                "totalAmount": 100000.0, "advancePaid": 30000.0,
+                "payments": [
+                    {"amount": 10000.0, "date": "2026-01-01T00:00:00+00:00"},
+                    {"amount": 20000.0, "date": "2026-01-02T00:00:00+00:00"},
+                ],
+                "status": "confirmed", "notes": "",
+                "createdAt": "2026-01-01T00:00:00+00:00",
+            }
+        }
+    }
+
+    class _FakeBookings:
+        async def find_one(self, flt, projection=None):
+            k = (flt["id"], flt["user_id"])
+            doc = store["bookings"].get(k)
+            return dict(doc) if doc else None
+
+        async def update_one(self, flt, update):
+            k = (flt["id"], flt["user_id"])
+            doc = store["bookings"].get(k)
+            if not doc:
+                return None
+            for kk, vv in update.get("$set", {}).items():
+                doc[kk] = vv
+            return None
+
+    class _FakeDB:
+        def __init__(self):
+            self.bookings = _FakeBookings()
+
+    monkeypatch.setattr(srv, "db", _FakeDB())
+    monkeypatch.setattr(srv, "get_current_user",
+                        lambda authorization=None: _async_return({"user_id": "user_a"}))
+
+    async def _run():
+        return await srv.delete_payment("MME-100", 0, authorization="Bearer x")
+
+    updated = asyncio.run(_run())
+    assert updated.advancePaid == 20000.0, f"expected 20000, got {updated.advancePaid}"
+    assert len(updated.payments) == 1
+    assert updated.payments[0].amount == 20000.0
+
+
+async def _async_return(v):
+    return v
+
+
+def test_delete_payment_out_of_range_raises(monkeypatch):
+    import asyncio
+    from fastapi import HTTPException
+    from backend import server as srv
+
+    class _B:
+        async def find_one(self, flt, projection=None):
+            return {"id": "MME-1", "user_id": "u", "clientName": "x", "phone": "1",
+                    "eventType": "y", "eventDate": "2026-01-01",
+                    "functionTime": "Day", "guestCount": 0,
+                    "totalAmount": 0.0, "advancePaid": 0.0,
+                    "payments": [], "status": "confirmed", "notes": "",
+                    "createdAt": "2026-01-01T00:00:00+00:00"}
+        async def update_one(self, *a, **k): return None
+
+    class _DB:
+        def __init__(self): self.bookings = _B()
+
+    monkeypatch.setattr(srv, "db", _DB())
+    monkeypatch.setattr(srv, "get_current_user",
+                        lambda authorization=None: _async_return({"user_id": "u"}))
+
+    async def _run():
+        try:
+            await srv.delete_payment("MME-1", 5, authorization="Bearer x")
+            return None
+        except HTTPException as e:
+            return e.status_code
+
+    code = asyncio.run(_run())
+    assert code == 404
+
+
+# ---------- Frontend static grep ----------
+def test_api_ts_exports_delete_payment():
+    assert "deletePayment:" in API_TS
+    assert "`/bookings/${id}/payments/${index}`" in API_TS
+    assert "method: 'DELETE'" in API_TS
+
+
+def test_context_defines_and_exports_delete_payment():
+    assert "deletePayment: (id: string, index: number) => Promise<void>" in CTX_TSX
+    assert "const deletePayment = useCallback" in CTX_TSX
+    # provider value includes deletePayment
+    assert re.search(r"value=\{\{[^}]*deletePayment[^}]*\}\}", CTX_TSX), \
+        "BookingsProvider value must include deletePayment"
+
+
+def test_detail_sheet_renders_delete_payment_buttons():
+    assert "testID={`delete-payment-${i}`}" in DETAIL_TSX
+    assert "onDeletePayment(booking.id, i)" in DETAIL_TSX
+    assert "onDeletePayment" in DETAIL_TSX
+
+
+def test_add_booking_sheet_keyboard_and_scroll_fixes():
+    # KeyboardAvoidingView behavior string
+    assert "Platform.OS === 'ios' ? 'padding' : 'height'" in ADDSHEET_TSX
+    # ScrollView paddingBottom >= 300
+    m = re.search(r"paddingBottom:\s*(\d+)", ADDSHEET_TSX)
+    assert m, "paddingBottom not found in AddBookingSheet"
+    assert int(m.group(1)) >= 300, f"expected paddingBottom >= 300, got {m.group(1)}"
+    # sheet maxHeight 95%
+    assert "maxHeight: '95%'" in ADDSHEET_TSX
+
+
+def test_tabs_layout_uses_safe_area_insets():
+    assert "useSafeAreaInsets" in TABS_LAYOUT_TSX
+    assert "const insets = useSafeAreaInsets()" in TABS_LAYOUT_TSX
+    assert "Math.max(insets.bottom" in TABS_LAYOUT_TSX
+    # paddingBottom + height both use insets.bottom
+    assert "paddingBottom: Math.max(insets.bottom" in TABS_LAYOUT_TSX
+    assert "height: 60 + Math.max(insets.bottom" in TABS_LAYOUT_TSX
+
+
+def test_tabs_content_paddingbottom_raised():
+    for src, name in [(DASHBOARD_TSX, "dashboard"), (BOOKINGS_TSX, "bookings"), (CALENDAR_TSX, "calendar")]:
+        matches = [int(x) for x in re.findall(r"paddingBottom:\s*(\d+)", src)]
+        assert matches, f"no paddingBottom in {name}.tsx"
+        assert max(matches) >= 160, f"{name}.tsx max paddingBottom {max(matches)} < 160"
