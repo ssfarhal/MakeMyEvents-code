@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/src/AuthContext';
 import { useBookings } from '@/src/BookingsContext';
 import { Colors } from '@/src/theme';
 import { BookingCard } from '@/src/BookingCard';
@@ -13,6 +14,7 @@ import { Booking } from '@/src/api';
 type Filter = 'all' | 'upcoming' | 'completed' | 'pending';
 
 export default function Bookings() {
+  const { user } = useAuth();
   const { bookings, refresh, loading, addBooking, updateBooking, deleteBooking, seed } = useBookings();
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
@@ -156,6 +158,7 @@ export default function Bookings() {
 
       <BookingDetailSheet
         booking={detail}
+        hallName={user?.hallName}
         onClose={() => setDetail(null)}
         onEdit={(b) => { setEditing(b); setShowAdd(true); }}
         onUpdate={updateBooking}

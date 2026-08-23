@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, ScrollView, Alert, Linking, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Modal, Pressable, ScrollView, Alert, Linking, Platform, TextInput, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { Colors, eventTypeColor, formatINR, formatDate } from './theme';
+import { Colors, eventTypeColor, formatINRFull, formatDate } from './theme';
 import { Booking } from './api';
 import { shareInvoice } from './invoice';
 
@@ -29,13 +29,18 @@ const statusMeta = (s: string) => {
 
 type Props = {
   booking: Booking | null;
+  hallName?: string;
   onClose: () => void;
   onEdit: (b: Booking) => void;
   onUpdate: (id: string, data: Partial<Booking>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 };
 
-export default function BookingDetailSheet({ booking, onClose, onEdit, onUpdate, onDelete }: Props) {
+export default function BookingDetailSheet({ booking, hallName, onClose, onEdit, onUpdate, onDelete }: Props) {
+  const [collectVisible, setCollectVisible] = useState(false);
+  const [collectAmount, setCollectAmount] = useState('');
+  const [collectBusy, setCollectBusy] = useState(false);
+
   if (!booking) return null;
   const total = booking.totalAmount || 0;
   const advance = booking.advancePaid || 0;
@@ -57,12 +62,31 @@ export default function BookingDetailSheet({ booking, onClose, onEdit, onUpdate,
     Alert.alert('Copied', 'Phone number copied to clipboard');
   };
 
-  const collectBalance = () => {
+  const openCollect = () => {
     if (balance <= 0) return;
-    Alert.alert('Collect Balance', `Mark ₹${formatINR(balance)} as collected from ${booking.clientName}?`, [
-      { text: 'Cancel' },
-      { text: 'Confirm', onPress: async () => onUpdate(booking.id, { advancePaid: total }) },
-    ]);
+    setCollectAmount(String(Math.round(balance)));
+    setCollectVisible(true);
+  };
+
+  const submitCollect = async () => {
+    const amt = parseFloat(collectAmount || '0');
+    if (isNaN(amt) || amt <= 0) {
+      Alert.alert('Invalid amount', 'Please enter an amount greater than 0.');
+      return;
+    }
+    if (amt > balance) {
+      Alert.alert('Too much', `Cannot collect more than the pending balance (${formatINRFull(balance)}).`);
+      return;
+    }
+    setCollectBusy(true);
+    try {
+      const newAdvance = advance + amt;
+      await onUpdate(booking.id, { advancePaid: newAdvance });
+      setCollectVisible(false);
+      setCollectAmount('');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to update payment');
+    } finally { setCollectBusy(false); }
   };
 
   const markDone = async () => {
@@ -78,14 +102,14 @@ export default function BookingDetailSheet({ booking, onClose, onEdit, onUpdate,
   };
 
   const deleteBooking = () => {
-    Alert.alert('Delete booking?', 'This cannot be undone.', [
+    Alert.alert('Delete booking?', 'This permanently removes the booking. Cannot be undone.', [
       { text: 'Cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => { await onDelete(booking.id); onClose(); } },
     ]);
   };
 
   const onInvoice = async () => {
-    try { await shareInvoice(booking); }
+    try { await shareInvoice(booking, { hallName }); }
     catch (e: any) { Alert.alert('Invoice error', e.message || 'Failed to generate invoice'); }
   };
 
@@ -108,7 +132,10 @@ export default function BookingDetailSheet({ booking, onClose, onEdit, onUpdate,
             <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
               <Text style={[styles.statusText, { color: status.fg }]}>{status.label}</Text>
             </View>
-            <Pressable onPress={onClose} style={{ padding: 6, marginLeft: 4 }} testID="close-detail-btn">
+            <Pressable onPress={deleteBooking} style={styles.headerIconBtn} testID="header-delete-btn">
+              <Ionicons name="trash-outline" size={20} color={Colors.error} />
+            </Pressable>
+            <Pressable onPress={onClose} style={styles.headerIconBtn} testID="close-detail-btn">
               <Ionicons name="close" size={22} color={Colors.muted} />
             </Pressable>
           </View>
@@ -127,11 +154,11 @@ export default function BookingDetailSheet({ booking, onClose, onEdit, onUpdate,
               <View style={styles.gridRow}>
                 <GridCell label="Guest Count" value={`${booking.guestCount} guests`} />
                 <View style={styles.vSep} />
-                <GridCell label="Total Amount" value={`₹${formatINR(total)}`} accent color={color} />
+                <GridCell label="Total Amount" value={formatINRFull(total)} accent color={color} />
               </View>
               <View style={styles.hSep} />
               <View style={styles.gridRow}>
-                <GridCell label={balance > 0 ? 'Balance Due' : 'Payment'} value={balance > 0 ? `₹${formatINR(balance)}` : 'Fully Paid'} />
+                <GridCell label={balance > 0 ? 'Balance Due' : 'Payment'} value={balance > 0 ? formatINRFull(balance) : 'Fully Paid'} />
                 <View style={styles.vSep} />
                 <GridCell label="Booking ID" value={booking.id} />
               </View>
@@ -156,14 +183,14 @@ export default function BookingDetailSheet({ booking, onClose, onEdit, onUpdate,
             {/* Payment summary */}
             <Text style={styles.sectionTitle}>Payment Summary</Text>
             <View style={styles.paymentCard}>
-              <PayRow label="Total Amount" value={`₹${formatINR(total)}`} bold />
-              <PayRow label="Advance Paid" value={`₹${formatINR(advance)}`} valueColor={Colors.success} />
+              <PayRow label="Total Amount" value={formatINRFull(total)} bold />
+              <PayRow label="Advance Paid" value={formatINRFull(advance)} valueColor={Colors.success} />
               <View style={styles.paySep} />
-              <PayRow label={balance > 0 ? 'Balance Due' : 'Status'} value={balance > 0 ? `₹${formatINR(balance)}` : 'Fully Paid ✓'} bold valueColor={balance > 0 ? Colors.warning : Colors.success} />
+              <PayRow label={balance > 0 ? 'Balance Due' : 'Status'} value={balance > 0 ? formatINRFull(balance) : 'Fully Paid ✓'} bold valueColor={balance > 0 ? Colors.warning : Colors.success} />
               {balance > 0 && !isCancelled && (
-                <Pressable onPress={collectBalance} style={styles.collectBtn} testID="collect-balance-btn">
+                <Pressable onPress={openCollect} style={styles.collectBtn} testID="collect-balance-btn">
                   <Ionicons name="cash" size={16} color="#fff" />
-                  <Text style={styles.collectText}>Collect Balance</Text>
+                  <Text style={styles.collectText}>Collect Payment</Text>
                 </Pressable>
               )}
             </View>
@@ -201,6 +228,60 @@ export default function BookingDetailSheet({ booking, onClose, onEdit, onUpdate,
           </ScrollView>
         </View>
       </View>
+
+      {/* Collect balance modal — partial amounts supported */}
+      <Modal visible={collectVisible} transparent animationType="fade" onRequestClose={() => setCollectVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.centerBackdrop}>
+          <Pressable style={{ ...StyleSheet.absoluteFillObject }} onPress={() => setCollectVisible(false)} />
+          <View style={styles.collectSheet}>
+            <View style={styles.collectHeader}>
+              <View style={[styles.collectIcon, { backgroundColor: Colors.successContainer }]}>
+                <Ionicons name="cash" size={20} color={Colors.success} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.collectTitle}>Collect Payment</Text>
+                <Text style={styles.collectSub}>{booking.clientName} • Pending {formatINRFull(balance)}</Text>
+              </View>
+              <Pressable onPress={() => setCollectVisible(false)}>
+                <Ionicons name="close" size={22} color={Colors.muted} />
+              </Pressable>
+            </View>
+            <Text style={styles.collectLabel}>Amount received (₹)</Text>
+            <TextInput
+              testID="collect-amount-input"
+              value={collectAmount}
+              onChangeText={(v) => setCollectAmount(v.replace(/[^0-9.]/g, ''))}
+              keyboardType="decimal-pad"
+              placeholder="0"
+              placeholderTextColor={Colors.muted}
+              style={styles.collectInput}
+              autoFocus
+            />
+            <Text style={styles.collectHint}>
+              Tip: If the client is paying less now and rest later, enter only what you collected today.
+            </Text>
+            <View style={styles.presetRow}>
+              {[0.25, 0.5, 1].map((frac) => {
+                const amt = Math.round(balance * frac);
+                return (
+                  <Pressable key={frac} onPress={() => setCollectAmount(String(amt))} style={styles.presetChip} testID={`preset-${frac}`}>
+                    <Text style={styles.presetText}>{frac === 1 ? 'Full' : `${frac * 100}%`}</Text>
+                    <Text style={styles.presetAmt}>{formatINRFull(amt)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Pressable
+              onPress={submitCollect}
+              disabled={collectBusy}
+              style={[styles.collectSubmit, collectBusy && { opacity: 0.6 }]}
+              testID="collect-confirm-btn"
+            >
+              <Text style={styles.collectSubmitText}>{collectBusy ? 'Saving…' : 'Confirm Collection'}</Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </Modal>
   );
 }
@@ -209,7 +290,7 @@ function GridCell({ label, value, accent, color }: any) {
   return (
     <View style={[styles.gridCell, accent && { backgroundColor: (color || Colors.primary) + '18' }]}>
       <Text style={styles.gridLabel}>{label}</Text>
-      <Text style={[styles.gridValue, accent && { color: color || Colors.primary }]} numberOfLines={1}>{value}</Text>
+      <Text style={[styles.gridValue, accent && { color: color || Colors.primary }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{value}</Text>
     </View>
   );
 }
@@ -236,12 +317,13 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
   sheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%' },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: '#CCC', marginTop: 10 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12 },
   eventIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   name: { fontSize: 17, fontWeight: '800', color: Colors.onSurface },
   eventType: { fontSize: 13, fontWeight: '600', marginTop: 2 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, marginRight: 4 },
   statusText: { fontSize: 11, fontWeight: '700' },
+  headerIconBtn: { padding: 6, marginLeft: 2 },
   divider: { height: 1, backgroundColor: Colors.outlineVariant },
   gridCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: Colors.outlineVariant, overflow: 'hidden', marginBottom: 20 },
   gridRow: { flexDirection: 'row' },
@@ -271,4 +353,19 @@ const styles = StyleSheet.create({
   actionText: { fontWeight: '700', fontSize: 13 },
   deleteBtn: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, backgroundColor: Colors.error },
   deleteText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  centerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  collectSheet: { width: '100%', maxWidth: 380, backgroundColor: '#fff', borderRadius: 20, padding: 20 },
+  collectHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  collectIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  collectTitle: { fontSize: 16, fontWeight: '800', color: Colors.onSurface },
+  collectSub: { fontSize: 12, color: Colors.muted, marginTop: 2 },
+  collectLabel: { fontSize: 12, fontWeight: '700', color: Colors.onSurfaceVariant, marginBottom: 8 },
+  collectInput: { backgroundColor: Colors.surfaceVariant, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 22, fontWeight: '800', color: Colors.onSurface, borderWidth: 1, borderColor: Colors.outline, textAlign: 'center' },
+  collectHint: { fontSize: 11, color: Colors.muted, marginTop: 8, lineHeight: 16 },
+  presetRow: { flexDirection: 'row', gap: 8, marginTop: 12, marginBottom: 16 },
+  presetChip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: Colors.surfaceVariant, borderWidth: 1, borderColor: Colors.outline },
+  presetText: { fontSize: 11, fontWeight: '700', color: Colors.onSurfaceVariant },
+  presetAmt: { fontSize: 12, fontWeight: '700', color: Colors.primary, marginTop: 2 },
+  collectSubmit: { backgroundColor: Colors.success, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  collectSubmitText: { color: '#fff', fontWeight: '800', fontSize: 15 },
 });

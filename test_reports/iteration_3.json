@@ -1,0 +1,34 @@
+{
+  "summary": "Verified all 6 bug fixes (KPI truncation, calendar year clipping, easy delete for cancelled bookings, ₹₹ double-symbol, partial balance collection, editable hall name in invoice). Backend: 14/14 pytest cases pass — including 3 new tests for the new PATCH /api/auth/me endpoint (401 without bearer, 401 with bad token, correct pydantic schema shape). GET /api/auth/me and POST /api/auth/session User schema now include hallName (Optional[str]) per code inspection. Frontend static code checks: theme.ts formatINR no longer prefixes ₹ and exports formatINRFull + formatINRCompact; BookingDetailSheet.tsx uses formatINRFull() consistently (grep for backtick+₹+dollar-brace formatINR returned 0 matches) and includes testIDs header-delete-btn, collect-amount-input, collect-confirm-btn, preset-0.25/0.5/1; dashboard.tsx uses formatINRCompact for KPI values and imports SettingsBottomSheet; calendar.tsx month/year container has minWidth:140 with textAlign:center; SettingsBottomSheet.tsx exists and default-exported. Frontend web preview loads login page with 'Continue with Google' button (no red screen, no runtime errors). End-to-end tap flow for KPI/delete/collect/settings not exercised because all these screens are Google-OAuth-gated (per test_credentials.md — no test password credentials, real Google account required).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_makemyevents.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Owner (main agent) should manually log in with a real Google account and verify (a) Dashboard 3 KPIs display without truncation and use compact form like ₹3.5L, (b) Calendar header shows '2026' fully, (c) BookingDetailSheet header trash icon deletes ANY booking (not just cancelled/completed) after confirm, (d) Payment Summary shows single ₹ (no ₹₹), (e) Collect Payment modal accepts a partial amount and increments advancePaid by the entered amount (not overwrites), (f) SettingsBottomSheet saves hallName via PATCH /api/auth/me and the shared PDF invoice header uses the saved hall name."
+  ],
+  "critical_code_review_comments": [
+    "server.py User model correctly adds Optional[str] hallName and PATCH /api/auth/me is auth-gated via get_current_user; UserUpdate uses payload.dict() with None-filtering — safe.",
+    "server.py L151: exchange_session returns hallName only for existing users; new signups return hallName=None which is correct (they'll set it later via Settings).",
+    "BookingDetailSheet.tsx L77-79: submitCollect validates amt<=balance and calls onUpdate({advancePaid: advance + amt}) — correctly ADDS instead of overwriting. Good.",
+    "BookingDetailSheet.tsx L135-137: header-delete-btn is unconditional (always shown regardless of status), addressing 'easy delete for cancelled bookings' plus more.",
+    "theme.ts formatINRCompact: uses .toFixed(n % X === 0 ? 0 : 1) — correctly hides '.0' for round numbers (e.g. ₹3L not ₹3.0L). Nice.",
+    "calendar.tsx: month container minWidth:140 with textAlign:center guarantees room for a 4-digit year like '2026'.",
+    "SettingsBottomSheet.tsx L43: save button is disabled while busy OR name is empty — prevents blank hall names being saved.",
+    "AuthContext / api.ts wiring for updateHallName and hallName prop drilling into BookingDetailSheet → shareInvoice were referenced in problem statement — file contents look consistent with static grep, but full runtime path needs a real login to exercise."
+  ],
+  "updated_files": ["/app/backend/tests/test_makemyevents.py"],
+  "success_rate": {"backend": "100% (14/14 pytest)", "frontend": "Static code checks 100%; login screen renders; auth-gated screens not exercised (Google OAuth required)"},
+  "seed_data_creation": "None — bookings endpoints require bearer token.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "MakeMyEvents is Google-OAuth-gated. Backend tests in /app/backend/tests/test_makemyevents.py now cover GET/PATCH /auth/me + all /bookings CRUD auth guards (14 tests). To E2E test the 6 UI fixes, log in with a real Google account, then verify: (1) Dashboard KPIs use compact form and all 3 fit, (2) Calendar shows full '2026' year, (3) Tapping trash icon in booking detail sheet header opens delete confirm for any booking, (4) Payment Summary shows single ₹, (5) Collect Payment modal supports partial amounts via testIDs collect-amount-input/collect-confirm-btn/preset-0.25/preset-0.5/preset-1, (6) Settings gear icon on Dashboard opens SettingsBottomSheet (testID save-hall-name-btn) and the saved hallName appears on the shared PDF invoice.",
+  "rca_of_issue": "N/A — this iteration is verification of 6 already-fixed bugs; all code changes described in the review request are present and syntactically correct per static inspection. Backend PATCH /auth/me route exists, is auth-gated, and pydantic-validates {hallName} shape correctly."
+}

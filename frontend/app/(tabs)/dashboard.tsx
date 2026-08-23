@@ -6,19 +6,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/src/AuthContext';
 import { useBookings } from '@/src/BookingsContext';
-import { Colors, formatFullDate, formatINR } from '@/src/theme';
+import { Colors, formatFullDate, formatINRCompact } from '@/src/theme';
 import { BookingCard } from '@/src/BookingCard';
 import AddBookingSheet from '@/src/AddBookingSheet';
 import BookingDetailSheet from '@/src/BookingDetailSheet';
 import { EmptyState } from '@/src/EmptyState';
+import SettingsBottomSheet from '@/src/SettingsBottomSheet';
 import { Booking } from '@/src/api';
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, updateHallName } = useAuth();
   const { bookings, refresh, addBooking, updateBooking, deleteBooking, seed, loading } = useBookings();
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Booking | null>(null);
   const [detail, setDetail] = useState<Booking | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const router = useRouter();
 
   React.useEffect(() => {
@@ -53,13 +55,16 @@ export default function Dashboard() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.appbar}>
         <Image source={require('../../assets/logo.png')} style={styles.brandLogo} />
-        <Text style={styles.brand}>MakeMyEvents</Text>
+        <Text style={styles.brand} numberOfLines={1}>{user?.hallName || 'MakeMyEvents'}</Text>
         <View style={{ flex: 1 }} />
         {bookings.length === 0 && !loading && (
           <Pressable testID="seed-btn" onPress={seed} style={styles.iconBtn}>
             <Ionicons name="sparkles-outline" size={20} color={Colors.primary} />
           </Pressable>
         )}
+        <Pressable testID="settings-btn" onPress={() => setShowSettings(true)} style={styles.iconBtn}>
+          <Ionicons name="settings-outline" size={20} color={Colors.primary} />
+        </Pressable>
         <Pressable testID="logout-btn" onPress={signOut} style={styles.iconBtn}>
           <Ionicons name="log-out-outline" size={22} color={Colors.primary} />
         </Pressable>
@@ -84,9 +89,9 @@ export default function Dashboard() {
 
         {/* KPI row */}
         <View style={styles.kpiRow}>
-          <KpiCard color={Colors.primary} bg={Colors.primaryContainer} icon="cash" label={'Monthly\nRevenue'} value={formatINR(kpis.monthlyRevenue)} />
+          <KpiCard color={Colors.primary} bg={Colors.primaryContainer} icon="cash" label={'Monthly\nRevenue'} value={formatINRCompact(kpis.monthlyRevenue)} />
           <KpiCard color={Colors.secondary} bg={Colors.secondaryContainer} icon="calendar" label={'Upcoming\nEvents'} value={String(kpis.upcomingCount)} />
-          <KpiCard color={Colors.warning} bg={Colors.warningContainer} icon="wallet" label={'Pending\nBalance'} value={formatINR(kpis.pendingBalance)} isAlert={kpis.pendingBalance > 0} />
+          <KpiCard color={Colors.warning} bg={Colors.warningContainer} icon="wallet" label={'Pending\nBalance'} value={formatINRCompact(kpis.pendingBalance)} isAlert={kpis.pendingBalance > 0} />
         </View>
 
         <View style={styles.sectionRow}>
@@ -128,12 +133,36 @@ export default function Dashboard() {
 
       <BookingDetailSheet
         booking={detail}
+        hallName={user?.hallName}
         onClose={() => setDetail(null)}
         onEdit={(b) => { setEditing(b); setShowAdd(true); }}
         onUpdate={updateBooking}
         onDelete={deleteBooking}
       />
+
+      <SettingsModal
+        visible={showSettings}
+        initialName={user?.hallName || ''}
+        onClose={() => setShowSettings(false)}
+        onSave={async (name) => { await updateHallName(name); }}
+      />
     </SafeAreaView>
+  );
+}
+
+function SettingsModal({ visible, initialName, onClose, onSave }: any) {
+  const [name, setName] = useState(initialName || '');
+  const [busy, setBusy] = useState(false);
+  React.useEffect(() => { if (visible) setName(initialName || ''); }, [visible, initialName]);
+  const save = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    try { await onSave(name.trim()); onClose(); }
+    catch (e: any) { console.warn(e); }
+    finally { setBusy(false); }
+  };
+  return (
+    <SettingsBottomSheet visible={visible} onClose={onClose} name={name} setName={setName} save={save} busy={busy} />
   );
 }
 
@@ -143,7 +172,7 @@ function KpiCard({ color, bg, icon, label, value, isAlert }: any) {
       <View style={[styles.kpiIcon, { backgroundColor: bg }]}>
         <Ionicons name={icon} size={18} color={color} />
       </View>
-      <Text style={styles.kpiValue} numberOfLines={1}>{value}</Text>
+      <Text style={styles.kpiValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
       <Text style={styles.kpiLabel}>{label}</Text>
     </View>
   );
@@ -165,7 +194,7 @@ const styles = StyleSheet.create({
   kpiRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   kpi: { flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 },
   kpiIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  kpiValue: { fontSize: 17, fontWeight: '800', color: Colors.onSurface, marginTop: 10 },
+  kpiValue: { fontSize: 15, fontWeight: '800', color: Colors.onSurface, marginTop: 10 },
   kpiLabel: { fontSize: 10, color: Colors.muted, marginTop: 2, lineHeight: 13 },
   sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.onSurface },

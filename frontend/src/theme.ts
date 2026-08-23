@@ -45,8 +45,20 @@ export const eventTypeIcon = (type: string): string => {
 
 export const formatINR = (v: number): string => {
   const n = Math.round(v || 0);
-  return '₹' + n.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,') + '/-';
+  return n.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,');
 };
+
+// Compact INR for KPI cards (₹1.5L, ₹50K)
+export const formatINRCompact = (v: number): string => {
+  const n = Math.round(v || 0);
+  if (n >= 10000000) return `₹${(n / 10000000).toFixed(n % 10000000 === 0 ? 0 : 1)}Cr`;
+  if (n >= 100000) return `₹${(n / 100000).toFixed(n % 100000 === 0 ? 0 : 1)}L`;
+  if (n >= 1000) return `₹${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}K`;
+  return `₹${n}`;
+};
+
+// Full form with ₹ prefix, e.g. ₹1,50,000
+export const formatINRFull = (v: number): string => `₹${formatINR(v)}`;
 
 export const formatDate = (iso: string): string => {
   const d = new Date(iso);

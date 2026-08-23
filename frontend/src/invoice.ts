@@ -112,8 +112,8 @@ export function buildInvoiceHtml(booking: Booking, opts?: { ownerName?: string; 
 </div></body></html>`;
 }
 
-export async function shareInvoice(booking: Booking) {
-  const html = buildInvoiceHtml(booking);
+export async function shareInvoice(booking: Booking, opts?: { hallName?: string }) {
+  const html = buildInvoiceHtml(booking, opts);
   if (Platform.OS === 'web') {
     // Web: open printable HTML in a new tab
     const win = window.open('', '_blank');

@@ -56,6 +56,7 @@ export const api = {
   exchangeSession: (session_id: string) =>
     request('/auth/session', { method: 'POST', body: JSON.stringify({ session_id }) }),
   me: () => request('/auth/me'),
+  updateMe: (data: { hallName?: string }) => request('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   listBookings: () => request('/bookings'),
   createBooking: (data: any) => request('/bookings', { method: 'POST', body: JSON.stringify(data) }),

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, eventTypeColor, formatDate, formatINR } from './theme';
+import { Colors, eventTypeColor, formatDate, formatINRFull } from './theme';
 import { Booking } from './api';
 
 const iconFor = (t: string) => {
@@ -64,11 +64,11 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress: (
         <View style={[styles.row, { marginTop: 6, alignItems: 'center' }]}>
           <View style={[styles.money, { backgroundColor: Colors.success + '18' }]}>
             <Text style={[styles.moneyLbl, { color: Colors.success }]}>Adv </Text>
-            <Text style={[styles.moneyVal, { color: Colors.success }]}>{formatINR(booking.advancePaid)}</Text>
+            <Text style={[styles.moneyVal, { color: Colors.success }]}>{formatINRFull(booking.advancePaid)}</Text>
           </View>
           <View style={[styles.money, { backgroundColor: (balance > 0 ? Colors.warning : Colors.success) + '18', marginLeft: 6 }]}>
             <Text style={[styles.moneyLbl, { color: balance > 0 ? Colors.warning : Colors.success }]}>Bal </Text>
-            <Text style={[styles.moneyVal, { color: balance > 0 ? Colors.warning : Colors.success }]}>{formatINR(balance)}</Text>
+            <Text style={[styles.moneyVal, { color: balance > 0 ? Colors.warning : Colors.success }]}>{formatINRFull(balance)}</Text>
           </View>
           <View style={{ flex: 1 }} />
           {days >= 0 && booking.status !== 'completed' && (

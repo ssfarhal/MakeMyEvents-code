@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useBookings } from '@/src/BookingsContext';
-import { Colors, formatINR, eventTypeColor } from '@/src/theme';
+import { Colors, formatINRFull, eventTypeColor } from '@/src/theme';
 import { Booking } from '@/src/api';
 import AddBookingSheet from '@/src/AddBookingSheet';
 
@@ -66,7 +66,7 @@ export default function CalendarScreen() {
           <Pressable testID="prev-month" onPress={() => setFocused(new Date(y, m - 1, 1))} style={styles.navBtn}>
             <Ionicons name="chevron-back" size={20} color={Colors.primary} />
           </Pressable>
-          <View style={{ alignItems: 'center' }}>
+          <View style={{ alignItems: 'center', minWidth: 140 }}>
             <Text style={styles.monthName}>{MONTH_NAMES[m]}</Text>
             <Text style={styles.monthYear}>{y}</Text>
           </View>
@@ -170,7 +170,7 @@ export default function CalendarScreen() {
                         <View style={{ flex: 1 }}>
                           <Text style={styles.bkName}>{b.clientName}</Text>
                           <Text style={styles.bkMeta}>{b.eventType} • {b.functionTime} • {b.guestCount} guests</Text>
-                          <Text style={styles.bkMoney}>Total {formatINR(b.totalAmount)} • Bal {formatINR(b.totalAmount - b.advancePaid)}</Text>
+                          <Text style={styles.bkMoney}>Total {formatINRFull(b.totalAmount)} • Bal {formatINRFull(b.totalAmount - b.advancePaid)}</Text>
                         </View>
                       </View>
                     ))
@@ -223,8 +223,8 @@ const styles = StyleSheet.create({
   liveText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   navBtn: { padding: 10, borderRadius: 10, backgroundColor: '#fff' },
-  monthName: { fontSize: 20, fontWeight: '800', color: Colors.onSurface },
-  monthYear: { fontSize: 13, color: Colors.muted },
+  monthName: { fontSize: 20, fontWeight: '800', color: Colors.onSurface, textAlign: 'center' },
+  monthYear: { fontSize: 14, color: Colors.muted, textAlign: 'center', fontWeight: '600', minWidth: 60 },
   legendRow: { flexDirection: 'row', gap: 12, marginBottom: 12, justifyContent: 'center' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },

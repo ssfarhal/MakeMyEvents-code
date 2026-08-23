@@ -34,6 +34,11 @@ class User(BaseModel):
     email: str
     name: Optional[str] = None
     picture: Optional[str] = None
+    hallName: Optional[str] = None
+
+
+class UserUpdate(BaseModel):
+    hallName: Optional[str] = None
 
 
 class AuthResponse(BaseModel):
@@ -142,13 +147,24 @@ async def exchange_session(payload: SessionExchange):
         "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
     })
     return AuthResponse(session_token=session_token,
-                        user=User(user_id=user_id, email=email, name=name, picture=picture))
+                        user=User(user_id=user_id, email=email, name=name, picture=picture,
+                                  hallName=(existing or {}).get("hallName") if existing else None))
 
 
 @api_router.get("/auth/me", response_model=User)
 async def auth_me(authorization: Optional[str] = Header(default=None)):
     u = await get_current_user(authorization)
-    return User(**{k: u.get(k) for k in ["user_id", "email", "name", "picture"]})
+    return User(**{k: u.get(k) for k in ["user_id", "email", "name", "picture", "hallName"]})
+
+
+@api_router.patch("/auth/me", response_model=User)
+async def update_me(payload: UserUpdate, authorization: Optional[str] = Header(default=None)):
+    u = await get_current_user(authorization)
+    updates = {k: v for k, v in payload.dict().items() if v is not None}
+    if updates:
+        await db.users.update_one({"user_id": u["user_id"]}, {"$set": updates})
+    doc = await db.users.find_one({"user_id": u["user_id"]}, {"_id": 0})
+    return User(**{k: doc.get(k) for k in ["user_id", "email", "name", "picture", "hallName"]})
 
 
 @api_router.post("/auth/logout")

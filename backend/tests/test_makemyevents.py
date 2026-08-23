@@ -40,6 +40,26 @@ def test_auth_me_bad_token(s):
     assert r.status_code == 401
 
 
+# PATCH /auth/me — hallName update (auth-gated)
+def test_patch_auth_me_requires_bearer(s):
+    r = s.patch(f"{API}/auth/me", json={"hallName": "Test Hall"}, timeout=15)
+    assert r.status_code == 401
+
+
+def test_patch_auth_me_bad_token(s):
+    r = s.patch(f"{API}/auth/me", json={"hallName": "Test Hall"},
+                headers={"Authorization": "Bearer nope"}, timeout=15)
+    assert r.status_code == 401
+
+
+def test_patch_auth_me_accepts_hallname_shape(s):
+    # Even with bad token, endpoint should be reachable (not 404/405); payload
+    # shape {hallName: str} is accepted by pydantic (401 from auth, not 422).
+    r = s.patch(f"{API}/auth/me", json={"hallName": "Bharath Convention Hall"},
+                headers={"Authorization": "Bearer nope"}, timeout=15)
+    assert r.status_code == 401, f"expected 401 (route+schema OK), got {r.status_code}"
+
+
 # Bookings - all require auth
 @pytest.mark.parametrize("method,path", [
     ("get", "/bookings"),
