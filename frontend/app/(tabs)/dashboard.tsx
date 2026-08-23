@@ -13,6 +13,7 @@ import BookingDetailSheet from '@/src/BookingDetailSheet';
 import { EmptyState } from '@/src/EmptyState';
 import SettingsBottomSheet from '@/src/SettingsBottomSheet';
 import ReportModal from '@/src/ReportModal';
+import MenuSheet from '@/src/MenuSheet';
 import { Booking } from '@/src/api';
 
 export default function Dashboard() {
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const [detail, setDetail] = useState<Booking | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const router = useRouter();
 
   React.useEffect(() => {
@@ -59,19 +61,8 @@ export default function Dashboard() {
         <Image source={require('../../assets/logo.png')} style={styles.brandLogo} />
         <Text style={styles.brand} numberOfLines={1}>{user?.hallName || 'MakeMyEvents'}</Text>
         <View style={{ flex: 1 }} />
-        {bookings.length === 0 && !loading && (
-          <Pressable testID="seed-btn" onPress={seed} style={styles.iconBtn}>
-            <Ionicons name="sparkles-outline" size={20} color={Colors.primary} />
-          </Pressable>
-        )}
-        <Pressable testID="report-btn" onPress={() => setShowReport(true)} style={styles.iconBtn}>
-          <Ionicons name="document-text-outline" size={20} color={Colors.primary} />
-        </Pressable>
-        <Pressable testID="settings-btn" onPress={() => setShowSettings(true)} style={styles.iconBtn}>
-          <Ionicons name="settings-outline" size={20} color={Colors.primary} />
-        </Pressable>
-        <Pressable testID="logout-btn" onPress={signOut} style={styles.iconBtn}>
-          <Ionicons name="log-out-outline" size={22} color={Colors.primary} />
+        <Pressable testID="open-menu-btn" onPress={() => setShowMenu(true)} style={styles.menuBtn}>
+          <Ionicons name="menu" size={22} color={Colors.onSurface} />
         </Pressable>
       </View>
 
@@ -166,6 +157,20 @@ export default function Dashboard() {
         hallAddress={user?.hallAddress}
         ownerPhone={user?.ownerPhone}
       />
+
+      <MenuSheet
+        visible={showMenu}
+        onClose={() => setShowMenu(false)}
+        hallName={user?.hallName}
+        ownerName={user?.name}
+        ownerEmail={user?.email}
+        items={[
+          { key: 'reports', label: 'Reports', icon: 'document-text-outline', onPress: () => setShowReport(true) },
+          { key: 'settings', label: 'Business Settings', icon: 'settings-outline', onPress: () => setShowSettings(true) },
+          { key: 'seed', label: 'Load Demo Bookings', icon: 'sparkles-outline', onPress: seed, hidden: bookings.length > 0 || loading },
+          { key: 'logout', label: 'Sign out', icon: 'log-out-outline', onPress: signOut, destructive: true },
+        ]}
+      />
     </SafeAreaView>
   );
 }
@@ -201,6 +206,7 @@ const styles = StyleSheet.create({
   brandLogo: { width: 32, height: 32, marginRight: 8 },
   brand: { fontSize: 17, fontWeight: '800', color: Colors.primary },
   iconBtn: { padding: 8 },
+  menuBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: Colors.outlineVariant, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   hero: { borderRadius: 20, padding: 20, marginBottom: 16 },
   availPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.20)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 12 },
   dot: { width: 7, height: 7, borderRadius: 4, marginRight: 6 },
