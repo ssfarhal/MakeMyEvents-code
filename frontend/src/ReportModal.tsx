@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, ActivityIndicator, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Colors, formatDate, formatINRFull } from './theme';
+import { Colors, formatDate, formatINRFull, toLocalISODate } from './theme';
 import { Booking } from './api';
 import { shareReport } from './invoice';
 
@@ -16,7 +16,7 @@ type Props = {
   ownerPhone?: string;
 };
 
-const toISODate = (d: Date) => d.toISOString().slice(0, 10);
+const toISODate = (d: Date) => toLocalISODate(d);
 const startOfMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); };
 const endOfMonth = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0); };
 

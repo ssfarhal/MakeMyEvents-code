@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/src/AuthContext';
 import { useBookings } from '@/src/BookingsContext';
-import { Colors } from '@/src/theme';
+import { Colors, toLocalISODate } from '@/src/theme';
 import { BookingCard } from '@/src/BookingCard';
 import AddBookingSheet from '@/src/AddBookingSheet';
 import BookingDetailSheet from '@/src/BookingDetailSheet';
@@ -23,7 +23,7 @@ export default function Bookings() {
   const [editing, setEditing] = useState<Booking | null>(null);
   const [detail, setDetail] = useState<Booking | null>(null);
 
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = toLocalISODate(new Date());
 
   const counts = useMemo(() => ({
     all: bookings.length,

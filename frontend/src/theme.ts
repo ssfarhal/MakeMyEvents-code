@@ -60,6 +60,14 @@ export const formatINRCompact = (v: number): string => {
 // Full form with ₹ prefix and /- suffix, e.g. ₹3,80,000/-
 export const formatINRFull = (v: number): string => `₹${formatINR(v)}/-`;
 
+// LOCAL YYYY-MM-DD (never converts to UTC — avoids off-by-one for IST/timezones east of UTC).
+export const toLocalISODate = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 export const formatDate = (iso: string): string => {
   const d = new Date(iso);
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];

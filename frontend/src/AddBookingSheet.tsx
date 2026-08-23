@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Modal, Pressable, ScrollView, TextInput, Keyboa
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Colors, eventTypeColor, formatDate } from './theme';
+import { Colors, eventTypeColor, formatDate, toLocalISODate } from './theme';
 import { Booking } from './api';
 
 const EVENT_TYPES = ['Wedding', 'Reception', 'Engagement', 'Birthday', 'Corporate', 'Other'];
@@ -56,7 +56,7 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
         clientName: clientName.trim(),
         phone: phone.trim(),
         eventType,
-        eventDate: date.toISOString().slice(0, 10),
+        eventDate: toLocalISODate(date),
         functionTime,
         guestCount: parseInt(guestCount || '0', 10),
         totalAmount: parseFloat(totalAmount || '0'),

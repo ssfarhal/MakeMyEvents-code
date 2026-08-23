@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/src/AuthContext';
 import { useBookings } from '@/src/BookingsContext';
-import { Colors, formatFullDate, formatINRFull } from '@/src/theme';
+import { Colors, formatFullDate, formatINRFull, toLocalISODate } from '@/src/theme';
 import { BookingCard } from '@/src/BookingCard';
 import AddBookingSheet from '@/src/AddBookingSheet';
 import BookingDetailSheet from '@/src/BookingDetailSheet';
@@ -37,7 +37,7 @@ export default function Dashboard() {
   const now = new Date();
   const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening';
   const displayName = (user?.ownerName && user.ownerName.trim().split(' ')[0]) || 'Owner';
-  const todayISO = now.toISOString().slice(0, 10);
+  const todayISO = toLocalISODate(now);
   const todayBookings = bookings.filter((b) => b.eventDate === todayISO);
   const upcoming = bookings.filter((b) => b.eventDate >= todayISO && b.status !== 'cancelled').slice(0, 4);
 
