@@ -19,8 +19,8 @@ Note: Please adhere to the above timings. Any extensions must be approved in adv
 4. RULES & DAMAGE LIABILITY
 Management will inspect the venue and equipment before and after the event. The client is fully responsible for any damage or loss caused to the venue, furniture, or appliances during the rental period.
 
-5. PERSONAL BELONGINGS
-Guests must take care of their own belongings at all times. Management is not responsible for any loss, theft, or damage to personal items.`;
+5. Personal Belongings & Valuables
+Guests must take care of their own belongings at all times. Management is not responsible for any loss, theft, or damage to personal items like cash, gold, mobile phones, laptops, cameras, tablet or other valuable items. Guests are advised to keep their valuables secure, Strictly speaking, management is not responsible.`;
 
 const fmt = (v: number) => {
   const n = Math.round(v || 0);

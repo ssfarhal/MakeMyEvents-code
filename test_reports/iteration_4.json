@@ -1,0 +1,32 @@
+{
+  "summary": "Verified both fixes: (1) invoice.ts DEFAULT_TERMS contains the exact 5-section owner wording including ₹25,000 security deposit, Morning/Night rental shifts, and the personal-belongings clause ending with 'Strictly speaking, management is not responsible.'; (2) sequential per-owner booking IDs via new next_booking_id() helper generating MME-001, MME-002, ... via atomic $inc on counters collection keyed as bookings_{user_id}. Backend imports & starts cleanly. 24/24 pytest cases pass (12 existing auth/booking guard tests + 12 new static-content + async id-sequencing tests). The async id-sequencing test monkeypatches the db and verifies MME-001 → MME-002 for the same user AND per-user counter isolation (a different user_id restarts at MME-001).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_makemyevents.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Main agent should manually log in with a real Google account and (a) POST /api/bookings/seed then GET /api/bookings and verify all 7 seeded bookings have sequential ids MME-001..MME-007, (b) create a new booking and confirm it is MME-008 (per-owner), (c) share a booking as PDF and visually confirm the 'Terms & Conditions' list on the invoice renders all 5 sections including the ₹25,000 security deposit and Morning/Night shift timings."
+  ],
+  "critical_code_review_comments": [
+    "server.py::next_booking_id uses find_one_and_update with $inc + upsert=True and return_document=True — this is the correct atomic-increment idiom for motor/pymongo and is race-safe for concurrent booking creates by the same owner.",
+    "server.py Booking.id is now Optional[str] = None (no more BKG-uuid default_factory); ids are only assigned in the two write paths (create_booking, seed_bookings) via next_booking_id — clean.",
+    "seed_bookings correctly calls next_booking_id INSIDE the samples for-loop (verified via _extract_fn_body regex test), so 7 seed bookings get MME-001..MME-007 in order rather than sharing one id.",
+    "invoice.ts DEFAULT_TERMS is a multi-line template literal split on '\\n' and rendered as <li> items — each blank-line-separated section becomes multiple bullets (section heading, then each detail line). Verified the required 5 headings + ₹25,000 + shift timings + valuables clause + closing sentence are all present.",
+    "invoice.ts buildInvoiceHtml still interpolates ${booking.id} into the 'Invoice No.' <p> cell, so new MME-xxx ids will appear on the PDF automatically.",
+    "Minor cosmetic: FastAPI on_event('startup'/'shutdown') is deprecated in favour of lifespan handlers (only surfaces as a DeprecationWarning in tests, not blocking) — worth migrating whenever the backend gets its next refactor."
+  ],
+  "updated_files": ["/app/backend/tests/test_makemyevents.py"],
+  "success_rate": {"backend": "100% (24/24 pytest)", "frontend": "N/A — testing_type=backend only"},
+  "seed_data_creation": "None persisted. The async unit test uses an in-memory _FakeDB with a counters collection, monkeypatched via monkeypatch.setattr(server, 'db', fake_db); no real Mongo writes.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "MakeMyEvents is Google-OAuth-gated so booking-create E2E cannot be exercised from the pytest suite. Instead, iteration_4 added: (i) static grep tests confirming next_booking_id is defined with the correct $inc-on-counters shape and MME-{seq:03d} format, (ii) regex-based function-body extraction (_extract_fn_body helper) to assert create_booking and seed_bookings actually CALL next_booking_id (and that seed_bookings calls it inside the loop, not once), (iii) an asyncio.run-driven unit test with a fake counters collection that proves two successive calls with the same user_id yield MME-001 then MME-002 and a different user_id restarts at MME-001, (iv) static assertions on the T&C wording in /app/frontend/src/invoice.ts including the exact closing sentence. Legacy 'BKG-' string check is also enforced (must not appear in server.py). Reuse these tests as regression on future iterations.",
+  "rca_of_issue": "N/A — verification-only iteration. Both requested fixes (sequential MME- ids + T&C wording) are correctly implemented per static + async unit tests."
+}

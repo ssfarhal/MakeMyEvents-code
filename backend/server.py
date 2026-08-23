@@ -47,7 +47,7 @@ class AuthResponse(BaseModel):
 
 
 class Booking(BaseModel):
-    id: str = Field(default_factory=lambda: f"BKG-{uuid.uuid4().hex[:8].upper()}")
+    id: Optional[str] = None
     user_id: str
     clientName: str
     phone: str
@@ -89,6 +89,18 @@ class BookingUpdate(BaseModel):
 
 
 # ---------- Auth helper ----------
+async def next_booking_id(user_id: str) -> str:
+    """Atomically returns the next per-user booking id like MME-001."""
+    res = await db.counters.find_one_and_update(
+        {"_id": f"bookings_{user_id}"},
+        {"$inc": {"seq": 1}},
+        upsert=True,
+        return_document=True,
+    )
+    seq = (res or {}).get("seq", 1)
+    return f"MME-{seq:03d}"
+
+
 async def get_current_user(authorization: Optional[str] = Header(default=None)) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
@@ -186,7 +198,8 @@ async def list_bookings(authorization: Optional[str] = Header(default=None)):
 @api_router.post("/bookings", response_model=Booking)
 async def create_booking(payload: BookingCreate, authorization: Optional[str] = Header(default=None)):
     user = await get_current_user(authorization)
-    booking = Booking(user_id=user["user_id"], **payload.dict())
+    bid = await next_booking_id(user["user_id"])
+    booking = Booking(id=bid, user_id=user["user_id"], **payload.dict())
     await db.bookings.insert_one(booking.dict())
     return booking
 
@@ -244,7 +257,8 @@ async def seed_bookings(authorization: Optional[str] = Header(default=None)):
     to_insert = []
     for (name, phone, etype, days_off, ftime, guests, total, adv, status, notes) in samples:
         d = now + timedelta(days=days_off)
-        b = Booking(user_id=user["user_id"], clientName=name, phone=phone, eventType=etype,
+        bid = await next_booking_id(user["user_id"])
+        b = Booking(id=bid, user_id=user["user_id"], clientName=name, phone=phone, eventType=etype,
                     eventDate=d.date().isoformat(), functionTime=ftime, guestCount=guests,
                     totalAmount=float(total), advancePaid=float(adv), status=status, notes=notes)
         to_insert.append(b.dict())
