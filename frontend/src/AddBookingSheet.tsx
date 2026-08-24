@@ -8,6 +8,14 @@ import { Booking, ChargeItem } from './api';
 
 const EVENT_TYPES = ['Wedding', 'Reception', 'Engagement', 'Birthday', 'Corporate', 'Other'];
 
+// Arial Black — mapped to closest native equivalents per platform.
+const ARIAL_BLACK = Platform.select<string | undefined>({
+  ios: 'Arial-Black',
+  android: 'sans-serif-black',
+  web: 'Arial Black, Arial, sans-serif',
+  default: undefined,
+}) as string | undefined;
+
 const FIXED_CHARGES: { label: string; icon: any }[] = [
   { label: 'Hall Rent', icon: 'business-outline' },
   { label: 'Labor Charges', icon: 'people-circle-outline' },
@@ -313,34 +321,34 @@ function Field(props: any) {
 }
 
 const fs = StyleSheet.create({
-  wrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceVariant, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10, borderWidth: 1, borderColor: Colors.outline },
-  input: { flex: 1, fontSize: 14, color: Colors.onSurface, padding: 0 },
+  wrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceVariant, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, borderWidth: 1, borderColor: Colors.outline },
+  input: { flex: 1, fontSize: 15, color: Colors.onSurface, padding: 0, fontFamily: ARIAL_BLACK, fontWeight: '900' },
 });
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.outlineVariant, backgroundColor: '#fff' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.outlineVariant, backgroundColor: '#fff' },
   headerBack: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  title: { flex: 1, fontSize: 18, fontWeight: '800', color: Colors.onSurface, textAlign: 'center' },
-  content: { padding: 20, paddingBottom: 40 },
-  section: { fontSize: 13, fontWeight: '700', color: Colors.primary, marginTop: 12, marginBottom: 8, letterSpacing: 0.3 },
-  helperText: { fontSize: 12, color: Colors.muted, marginBottom: 10 },
-  subLabel: { fontSize: 12, fontWeight: '700', color: Colors.onSurfaceVariant, marginTop: 6, marginBottom: 8, letterSpacing: 0.2 },
-  extraRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  totalCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.primary + '10', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, marginTop: 6, marginBottom: 10, borderWidth: 1, borderColor: Colors.primary + '33' },
-  totalLabel: { fontSize: 14, fontWeight: '800', color: Colors.primary, marginLeft: 8 },
-  totalValue: { fontSize: 18, fontWeight: '900', color: Colors.primary },
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
-  typeChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: Colors.outline, backgroundColor: Colors.surfaceVariant },
+  title: { flex: 1, fontSize: 20, fontWeight: '900', color: Colors.onSurface, textAlign: 'center', fontFamily: ARIAL_BLACK },
+  content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
+  section: { fontSize: 14, fontWeight: '900', color: Colors.primary, marginTop: 10, marginBottom: 6, letterSpacing: 0.4, fontFamily: ARIAL_BLACK, textTransform: 'uppercase' },
+  helperText: { fontSize: 13, color: Colors.muted, marginBottom: 8, fontFamily: ARIAL_BLACK, fontWeight: '900' },
+  subLabel: { fontSize: 14, fontWeight: '900', color: Colors.onSurfaceVariant, marginTop: 4, marginBottom: 6, letterSpacing: 0.3, fontFamily: ARIAL_BLACK },
+  extraRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  totalCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.primary + '10', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginTop: 4, marginBottom: 8, borderWidth: 1, borderColor: Colors.primary + '33' },
+  totalLabel: { fontSize: 16, fontWeight: '900', color: Colors.primary, marginLeft: 8, fontFamily: ARIAL_BLACK },
+  totalValue: { fontSize: 20, fontWeight: '900', color: Colors.primary, fontFamily: ARIAL_BLACK },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  typeChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: Colors.outline, backgroundColor: Colors.surfaceVariant },
   typeDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-  typeText: { fontSize: 12, fontWeight: '600', color: Colors.onSurfaceVariant },
-  dateBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.surfaceVariant, borderWidth: 1, borderColor: Colors.outline, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 10 },
-  dateText: { flex: 1, fontSize: 14, color: Colors.onSurface, fontWeight: '600' },
-  dayNight: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  funcBtn: { flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.outline, backgroundColor: Colors.surfaceVariant },
-  funcBtnText: { fontSize: 13, fontWeight: '700', color: Colors.onSurfaceVariant },
-  submit: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
-  submitText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  typeText: { fontSize: 13, fontWeight: '900', color: Colors.onSurfaceVariant, fontFamily: ARIAL_BLACK },
+  dateBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.surfaceVariant, borderWidth: 1, borderColor: Colors.outline, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8 },
+  dateText: { flex: 1, fontSize: 15, color: Colors.onSurface, fontWeight: '900', fontFamily: ARIAL_BLACK },
+  dayNight: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  funcBtn: { flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.outline, backgroundColor: Colors.surfaceVariant },
+  funcBtnText: { fontSize: 14, fontWeight: '900', color: Colors.onSurfaceVariant, fontFamily: ARIAL_BLACK },
+  submit: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 16 },
+  submitText: { color: '#fff', fontSize: 17, fontWeight: '900', fontFamily: ARIAL_BLACK, letterSpacing: 0.5 },
   iosPickerBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.35)' },
   iosPicker: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 20 },
   iosPickerHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.outlineVariant },
