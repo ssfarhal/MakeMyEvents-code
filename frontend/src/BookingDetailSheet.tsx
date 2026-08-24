@@ -217,6 +217,14 @@ Best regards,
             {/* Payment summary */}
             <Text style={styles.sectionTitle}>Payment Summary</Text>
             <View style={styles.paymentCard}>
+              {(booking.charges && booking.charges.length > 0) && (
+                <>
+                  {booking.charges.map((c, i) => (
+                    <PayRow key={`chg-${i}`} label={c.label} value={formatINRFull(c.amount)} />
+                  ))}
+                  <View style={styles.paySep} />
+                </>
+              )}
               <PayRow label="Total Amount" value={formatINRFull(total)} bold />
               <PayRow label="Advance Paid" value={formatINRFull(advance)} valueColor={Colors.success} />
               <View style={styles.paySep} />

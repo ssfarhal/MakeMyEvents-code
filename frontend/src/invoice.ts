@@ -162,9 +162,12 @@ export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string; h
     <table>
       <thead><tr><th>Description</th><th class="amount">Amount (₹)</th></tr></thead>
       <tbody>
-        <tr><td>Hall Booking — ${booking.eventType} (${booking.guestCount} guests)</td><td class="amount">₹${fmt(total)}</td></tr>
-        <tr><td>Advance Paid</td><td class="amount" style="color:#2d7a4f">- ₹${fmt(advance)}</td></tr>
+        ${(booking.charges && booking.charges.length > 0)
+          ? booking.charges.map((c) => `<tr><td>${c.label}</td><td class="amount">₹${fmt(c.amount)}</td></tr>`).join('')
+          : `<tr><td>Hall Booking — ${booking.eventType} (${booking.guestCount} guests)</td><td class="amount">₹${fmt(total)}</td></tr>`
+        }
         <tr class="total"><td>Total Amount</td><td class="amount">₹${fmt(total)}</td></tr>
+        <tr><td>Advance Paid</td><td class="amount" style="color:#2d7a4f">- ₹${fmt(advance)}</td></tr>
         <tr class="balance"><td>${balance > 0 ? 'Balance Due' : 'Fully Paid ✓'}</td><td class="amount">₹${fmt(balance)}</td></tr>
       </tbody>
     </table></div>
