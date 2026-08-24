@@ -122,6 +122,29 @@ export default function BookingDetailSheet({ booking, hallName, hallAddress, own
     catch (e: any) { Alert.alert('Invoice error', e.message || 'Failed to generate invoice'); }
   };
 
+  const sendWhatsAppReminder = async () => {
+    if (!booking.phone) { Alert.alert('No phone', 'Client phone number is missing.'); return; }
+    const msg =
+`Dear ${booking.clientName},
+Greetings from ${hallName || 'our convention hall'}! 🙏
+This is a gentle reminder regarding the pending balance of ${formatINRFull(balance)} for your booking on ${formatDate(booking.eventDate)}.
+Please clear the remaining pending amount. You can make the payment via UPI ${ownerPhone || ''}, bank transfer, or cash.
+Kindly share the payment screenshot once done. Thank you for choosing us!
+Best regards,
+${ownerName || 'Owner'}`;
+    const encoded = encodeURIComponent(msg);
+    // wa.me requires phone with country code, no +.
+    const num = `91${(booking.phone || '').replace(/\D/g, '').slice(-10)}`;
+    const primary = `whatsapp://send?phone=${num}&text=${encoded}`;
+    const fallback = `https://wa.me/${num}?text=${encoded}`;
+    try {
+      const supported = await Linking.canOpenURL(primary);
+      await Linking.openURL(supported ? primary : fallback);
+    } catch {
+      try { await Linking.openURL(fallback); } catch (e: any) { Alert.alert('WhatsApp', e?.message || 'Could not open WhatsApp'); }
+    }
+  };
+
   return (
     <Modal visible={!!booking} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -258,6 +281,13 @@ export default function BookingDetailSheet({ booking, hallName, hallAddress, own
               <Ionicons name="receipt-outline" size={18} color={Colors.primary} />
               <Text style={styles.invoiceText}>{Platform.OS === 'web' ? 'Print Invoice' : 'Share PDF Invoice'}</Text>
             </Pressable>
+
+            {balance > 0 && !isCancelled && (
+              <Pressable onPress={sendWhatsAppReminder} style={styles.waBtn} testID="wa-reminder-btn">
+                <Ionicons name="logo-whatsapp" size={18} color="#fff" />
+                <Text style={styles.waText}>Send WhatsApp Reminder</Text>
+              </Pressable>
+            )}
 
             {/* Actions — Edit + Cancel always available for non-cancelled bookings */}
             {!isCancelled ? (
@@ -397,6 +427,8 @@ const styles = StyleSheet.create({
   notesText: { fontSize: 13, color: Colors.onSurfaceVariant, lineHeight: 20 },
   invoiceBtn: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', borderRadius: 12, paddingVertical: 14, borderWidth: 1.5, borderColor: Colors.primary, marginBottom: 12 },
   invoiceText: { color: Colors.primary, fontWeight: '700', fontSize: 14 },
+  waBtn: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', borderRadius: 12, paddingVertical: 14, backgroundColor: '#25D366', marginBottom: 12 },
+  waText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   actionsRow: { flexDirection: 'row', gap: 8 },
   actionBtn: { flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12 },
   actionText: { fontWeight: '700', fontSize: 13 },
