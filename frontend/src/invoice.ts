@@ -1,6 +1,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { Booking, Payment } from './api';
 
@@ -8,14 +8,15 @@ const sanitizeName = (s: string) => (s || '').replace(/[^a-zA-Z0-9-_\s]/g, '').t
 
 async function renameForShare(uri: string, filename: string): Promise<string> {
   try {
-    const dir = (FileSystem as any).cacheDirectory || '';
+    const dir = FileSystem.documentDirectory || FileSystem.cacheDirectory || '';
     if (!dir) return uri;
     const target = `${dir}${filename}`;
     // Overwrite if it already exists.
-    try { await FileSystem.deleteAsync(target, { idempotent: true } as any); } catch {}
+    try { await FileSystem.deleteAsync(target, { idempotent: true }); } catch {}
     await FileSystem.copyAsync({ from: uri, to: target });
     return target;
-  } catch {
+  } catch (e) {
+    console.warn('renameForShare failed', e);
     return uri;
   }
 }
