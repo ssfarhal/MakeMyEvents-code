@@ -20,6 +20,7 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
   const [clientName, setClientName] = useState('');
   const [phone, setPhone] = useState('');
   const [eventType, setEventType] = useState('Wedding');
+  const [customEventName, setCustomEventName] = useState('');
   const [date, setDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [functionTime, setFunctionTime] = useState<'Day' | 'Night'>('Day');
@@ -33,7 +34,10 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
     if (visible) {
       setClientName(existing?.clientName || '');
       setPhone(existing?.phone || '');
-      setEventType(existing?.eventType || 'Wedding');
+      const et = existing?.eventType || 'Wedding';
+      const isStd = EVENT_TYPES.includes(et);
+      setEventType(isStd ? et : 'Other');
+      setCustomEventName(isStd ? '' : et);
       setDate(existing?.eventDate ? new Date(existing.eventDate) : (prefillDate || null));
       setFunctionTime((existing?.functionTime as any) || 'Day');
       setGuestCount(existing ? String(existing.guestCount) : '');
@@ -43,7 +47,8 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
     }
   }, [visible, existing, prefillDate]);
 
-  const isValid = clientName.trim() && phone.trim().length >= 10 && date && totalAmount;
+  const finalEventType = eventType === 'Other' ? (customEventName.trim() || 'Other') : eventType;
+  const isValid = clientName.trim() && phone.trim().length >= 10 && date && totalAmount && (eventType !== 'Other' || customEventName.trim());
 
   const submit = async () => {
     if (!isValid || !date) {
@@ -55,7 +60,7 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
       await onSubmit({
         clientName: clientName.trim(),
         phone: phone.trim(),
-        eventType,
+        eventType: finalEventType,
         eventDate: toLocalISODate(date),
         functionTime,
         guestCount: parseInt(guestCount || '0', 10),
@@ -113,6 +118,15 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
                 );
               })}
             </View>
+            {eventType === 'Other' && (
+              <Field
+                icon="pricetag-outline"
+                placeholder="Which event? (e.g. Sangeet, Baby Shower) *"
+                value={customEventName}
+                onChangeText={setCustomEventName}
+                testID="input-customEventName"
+              />
+            )}
 
             <Pressable onPress={() => setShowDatePicker(true)} style={styles.dateBtn} testID="open-date-picker">
               <Ionicons name="calendar-outline" size={18} color={Colors.onSurfaceVariant} />

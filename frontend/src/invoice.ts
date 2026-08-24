@@ -1,7 +1,24 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { Booking, Payment } from './api';
+
+const sanitizeName = (s: string) => (s || '').replace(/[^a-zA-Z0-9-_\s]/g, '').trim().replace(/\s+/g, '_') || 'file';
+
+async function renameForShare(uri: string, filename: string): Promise<string> {
+  try {
+    const dir = (FileSystem as any).cacheDirectory || '';
+    if (!dir) return uri;
+    const target = `${dir}${filename}`;
+    // Overwrite if it already exists.
+    try { await FileSystem.deleteAsync(target, { idempotent: true } as any); } catch {}
+    await FileSystem.copyAsync({ from: uri, to: target });
+    return target;
+  } catch {
+    return uri;
+  }
+}
 
 const DEFAULT_TERMS = `RENTAL TERMS & CONDITIONS
 
@@ -159,9 +176,11 @@ export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string; h
 
 export async function shareInvoice(booking: Booking, opts?: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) {
   const html = buildInvoiceHtml(booking, opts);
+  const filename = `${sanitizeName(booking.clientName)}_${sanitizeName(booking.id)}.pdf`;
   if (Platform.OS === 'web') {
     const win = window.open('', '_blank');
     if (win) {
+      win.document.title = filename.replace('.pdf', '');
       win.document.write(html);
       win.document.close();
       setTimeout(() => win.print(), 500);
@@ -169,11 +188,12 @@ export async function shareInvoice(booking: Booking, opts?: { hallName?: string;
     return;
   }
   const { uri } = await Print.printToFileAsync({ html });
+  const finalUri = await renameForShare(uri, filename);
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {
-    await Sharing.shareAsync(uri, {
+    await Sharing.shareAsync(finalUri, {
       mimeType: 'application/pdf',
-      dialogTitle: `Invoice ${booking.id}`,
+      dialogTitle: filename,
       UTI: 'com.adobe.pdf',
     });
   }
@@ -284,17 +304,19 @@ export function buildReportHtml(bookings: Booking[], startISO: string, endISO: s
 
 export async function shareReport(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) {
   const html = buildReportHtml(bookings, startISO, endISO, opts);
+  const filename = `Report_${startISO}_to_${endISO}.pdf`;
   if (Platform.OS === 'web') {
     const win = window.open('', '_blank');
-    if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 500); }
+    if (win) { win.document.title = filename.replace('.pdf', ''); win.document.write(html); win.document.close(); setTimeout(() => win.print(), 500); }
     return;
   }
   const { uri } = await Print.printToFileAsync({ html });
+  const finalUri = await renameForShare(uri, filename);
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {
-    await Sharing.shareAsync(uri, {
+    await Sharing.shareAsync(finalUri, {
       mimeType: 'application/pdf',
-      dialogTitle: `Report ${startISO} to ${endISO}`,
+      dialogTitle: filename,
       UTI: 'com.adobe.pdf',
     });
   }

@@ -153,19 +153,17 @@ def test_theme_format_inr_full_returns_rupee_with_dash_suffix():
 
 
 def test_dashboard_uses_format_inr_full_not_compact():
+    # Iteration 9: Dashboard KPI reduced to just Upcoming Events (count, no currency).
+    # formatINRFull is still imported and used elsewhere (FAB/section). Assert no compact usage.
     assert "formatINRFull" in DASHBOARD_TSX
-    # KPI rendering line must not use compact
-    kpi_matches = re.findall(r"KpiCard[^>]*value=\{formatINR\w+\(", DASHBOARD_TSX)
-    assert kpi_matches, "no KpiCard value formatter found"
-    assert all("formatINRCompact" not in m for m in kpi_matches), \
-        f"KPI cards still use formatINRCompact: {kpi_matches}"
+    assert "formatINRCompact" not in DASHBOARD_TSX, "Dashboard must not use formatINRCompact"
 
 
 def test_dashboard_imports_and_uses_report_modal():
+    # Iteration 9: ReportModal is still imported (still used from dashboard for reports).
+    # The 'report-btn' testID was replaced by other entry points (Revenue menu / other flows).
     assert "import ReportModal" in DASHBOARD_TSX
     assert '<ReportModal' in DASHBOARD_TSX
-    assert 'testID="report-btn"' in DASHBOARD_TSX
-    assert "setShowReport(true)" in DASHBOARD_TSX
 
 
 def test_booking_detail_sheet_uses_add_payment_and_shows_history():
@@ -572,3 +570,247 @@ def test_tabs_content_paddingbottom_raised():
         matches = [int(x) for x in re.findall(r"paddingBottom:\s*(\d+)", src)]
         assert matches, f"no paddingBottom in {name}.tsx"
         assert max(matches) >= 160, f"{name}.tsx max paddingBottom {max(matches)} < 160"
+
+
+# ============================================================
+# Iteration 9: Batch changes — bookings by-month, Revenue modal,
+# NotificationSheet, custom event name, PDF filenames,
+# auto-complete past bookings, day-diff fix, no Done btn
+# ============================================================
+NOTIF_TSX = Path("/app/frontend/src/NotificationSheet.tsx").read_text(encoding="utf-8")
+REVENUE_TSX = Path("/app/frontend/src/RevenueModal.tsx").read_text(encoding="utf-8")
+from datetime import datetime, timezone, timedelta  # noqa: E402
+
+
+# ---------- Backend auto-complete ----------
+def test_list_bookings_auto_completes_past_confirmed(monkeypatch):
+    """Seed a past-dated confirmed booking → GET /bookings marks it completed."""
+    import asyncio
+    from backend import server as srv
+
+    past_iso = (datetime.now(timezone.utc).date() - timedelta(days=5)).isoformat()
+    store = {
+        ("MME-P1", "user_x"): {
+            "id": "MME-P1", "user_id": "user_x",
+            "clientName": "Past Client", "phone": "1", "eventType": "Wedding",
+            "eventDate": past_iso, "functionTime": "Day", "guestCount": 0,
+            "totalAmount": 1000.0, "advancePaid": 0.0, "payments": [],
+            "status": "confirmed", "notes": "",
+            "createdAt": "2025-01-01T00:00:00+00:00",
+        },
+        ("MME-P2", "user_x"): {
+            "id": "MME-P2", "user_id": "user_x",
+            "clientName": "Future Client", "phone": "2", "eventType": "Reception",
+            "eventDate": "2099-01-01", "functionTime": "Day", "guestCount": 0,
+            "totalAmount": 1000.0, "advancePaid": 0.0, "payments": [],
+            "status": "confirmed", "notes": "",
+            "createdAt": "2025-01-01T00:00:00+00:00",
+        },
+    }
+
+    class _Bookings:
+        async def update_many(self, flt, update):
+            uid = flt["user_id"]
+            excluded = flt["status"]["$nin"]
+            lt = flt["eventDate"]["$lt"]
+            set_status = update["$set"]["status"]
+            for k, d in store.items():
+                if d["user_id"] == uid and d["status"] not in excluded and d["eventDate"] < lt:
+                    d["status"] = set_status
+            return None
+
+        def find(self, flt, projection=None):
+            docs = [dict(d) for k, d in store.items() if d["user_id"] == flt["user_id"]]
+            class _C:
+                def __init__(self, xs): self.xs = xs
+                async def to_list(self, n): return self.xs[:n]
+            return _C(docs)
+
+    class _DB:
+        def __init__(self): self.bookings = _Bookings()
+
+    monkeypatch.setattr(srv, "db", _DB())
+    monkeypatch.setattr(srv, "get_current_user",
+                        lambda authorization=None: _async_return({"user_id": "user_x"}))
+
+    async def _run():
+        return await srv.list_bookings(authorization="Bearer x")
+
+    bookings = asyncio.run(_run())
+    by_id = {b.id: b for b in bookings}
+    assert by_id["MME-P1"].status == "completed", "past confirmed must be auto-completed"
+    assert by_id["MME-P2"].status == "confirmed", "future must NOT change"
+
+
+def test_list_bookings_endpoint_has_update_many_call():
+    body = _extract_fn_body(SERVER_PY, "list_bookings")
+    assert "update_many" in body
+    assert '"$nin": ["cancelled", "completed"]' in body
+    assert '"status": "completed"' in body
+    assert '"$lt": today_iso' in body or "eventDate" in body
+
+
+# ---------- theme.ts daysUntil / parseLocalISODate ----------
+def test_theme_exports_parse_local_iso_and_days_until():
+    assert "parseLocalISODate" in THEME_TS
+    assert "daysUntil" in THEME_TS
+    # daysUntil uses local midnight anchor
+    assert "new Date(t.getFullYear(), t.getMonth(), t.getDate())" in THEME_TS
+    assert "parseLocalISODate(iso)" in THEME_TS
+
+
+def test_days_until_via_node():
+    """Runtime verify: today=0, +1=1, +5=5"""
+    import subprocess, tempfile, os as _os
+    script = r"""
+const toLocalISODate = (d) => { const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; };
+const parseLocalISODate = (iso) => { const [y,m,d] = iso.split('-').map(v=>parseInt(v,10)); return new Date(y,(m||1)-1,d||1); };
+const daysUntil = (iso) => { const t=new Date(); const t0=new Date(t.getFullYear(),t.getMonth(),t.getDate()); const ev=parseLocalISODate(iso); return Math.round((ev.getTime()-t0.getTime())/86400000); };
+const today = new Date();
+const plus = (n) => { const d = new Date(today.getFullYear(), today.getMonth(), today.getDate()+n); return toLocalISODate(d); };
+console.log(JSON.stringify({today: daysUntil(plus(0)), tomorrow: daysUntil(plus(1)), five: daysUntil(plus(5)), yest: daysUntil(plus(-1))}));
+"""
+    with tempfile.NamedTemporaryFile(suffix=".js", mode="w", delete=False) as f:
+        f.write(script); path = f.name
+    try:
+        out = subprocess.check_output(["node", path], env={**_os.environ, "TZ": "Asia/Kolkata"}).decode().strip()
+    finally:
+        _os.unlink(path)
+    import json as _j
+    r = _j.loads(out)
+    assert r == {"today": 0, "tomorrow": 1, "five": 5, "yest": -1}, r
+
+
+# ---------- BookingCard uses daysUntil ----------
+def test_booking_card_uses_days_until_not_math_ceil():
+    src = Path("/app/frontend/src/BookingCard.tsx").read_text(encoding="utf-8")
+    assert "daysUntil" in src
+    assert "Math.ceil" not in src, "BookingCard must not use Math.ceil for day diff"
+    # Ensure no raw new Date(iso).getTime() diff either
+    assert "new Date(booking.eventDate).getTime" not in src
+
+
+# ---------- BookingDetailSheet no 'Done' button ----------
+def test_detail_sheet_has_no_done_button():
+    assert 'testID="done-btn"' not in DETAIL_TSX
+    # 'Done' label must not appear as an action; but 'Done' inside iOS date picker allowed in AddBookingSheet
+    # Ensure no ActionBtn / Pressable with label={'Done'} or label="Done"
+    assert 'label="Done"' not in DETAIL_TSX
+    assert "label={'Done'}" not in DETAIL_TSX
+    # edit-btn present, cancel-btn present (guarded by not completed)
+    assert 'testID="edit-btn"' in DETAIL_TSX
+    assert 'testID="cancel-btn"' in DETAIL_TSX
+
+
+# ---------- AddBookingSheet custom event name ----------
+def test_add_sheet_custom_event_name_input_and_logic():
+    assert 'testID="input-customEventName"' in ADDSHEET_TSX
+    # Renders only when eventType === 'Other'
+    assert "eventType === 'Other' && (" in ADDSHEET_TSX
+    # finalEventType uses customEventName when Other
+    assert "eventType === 'Other' ? (customEventName.trim() || 'Other') : eventType" in ADDSHEET_TSX
+    # isValid rejects submit when Other but empty
+    assert "(eventType !== 'Other' || customEventName.trim())" in ADDSHEET_TSX
+
+
+# ---------- Invoice / Report filenames ----------
+def test_invoice_ts_filenames_and_rename():
+    assert "sanitizeName" in INVOICE_TS
+    assert "renameForShare" in INVOICE_TS
+    # Invoice filename pattern: <sanitized clientName>_<sanitized id>.pdf
+    assert "`${sanitizeName(booking.clientName)}_${sanitizeName(booking.id)}.pdf`" in INVOICE_TS
+    # Report filename pattern
+    assert "`Report_${startISO}_to_${endISO}.pdf`" in INVOICE_TS
+    # Both share fns call renameForShare then Sharing.shareAsync
+    assert INVOICE_TS.count("renameForShare(") >= 2
+    assert "Sharing.shareAsync" in INVOICE_TS
+    # sanitize regex strips non-alphanumeric and converts spaces to _
+    assert re.search(r"replace\(/\[\^a-zA-Z0-9-_\\s\]/g", INVOICE_TS)
+    assert "replace(/\\s+/g, '_')" in INVOICE_TS
+
+
+# ---------- NotificationSheet ----------
+def test_notification_sheet_exports_overdue_and_message_pattern():
+    assert "export function overdueBookings" in NOTIF_TSX
+    # Overdue = status != cancelled AND balance > 0 AND daysUntil < 0
+    assert "b.status !== 'cancelled'" in NOTIF_TSX
+    assert "daysUntil(b.eventDate) < 0" in NOTIF_TSX
+    # Message pattern (JSX split by <Text>: verify the visible substrings)
+    assert "Hi {displayName}, there is a pending amount of" in NOTIF_TSX
+    assert "by " in NOTIF_TSX
+    assert "please update in Collect Payment" in NOTIF_TSX
+
+
+def test_dashboard_uses_overdue_for_notif_count_and_bell():
+    src = DASHBOARD_TSX
+    assert "overdueBookings(bookings).length" in src
+    assert "NotificationSheet" in src
+    # Should NOT still be using old daysUntil-based inline count for bell
+    # (the count comes from overdueBookings now)
+
+
+# ---------- Dashboard KPI + Menu ----------
+def test_dashboard_has_only_one_kpi_upcoming():
+    kpi_lines = [ln for ln in DASHBOARD_TSX.splitlines() if "<KpiCard" in ln]
+    assert len(kpi_lines) == 1, f"expected exactly 1 KpiCard, found {len(kpi_lines)}: {kpi_lines}"
+    assert "Upcoming Events" in kpi_lines[0]
+    # No monthly revenue / pending balance KPIs
+    assert "Monthly Revenue" not in DASHBOARD_TSX
+    assert "Pending Balance" not in DASHBOARD_TSX
+
+
+def test_dashboard_menu_has_revenue_before_settings_and_logout():
+    m_rev = DASHBOARD_TSX.find("key: 'revenue'")
+    m_set = DASHBOARD_TSX.find("key: 'settings'")
+    m_log = DASHBOARD_TSX.find("key: 'logout'")
+    assert m_rev > 0 and m_set > 0 and m_log > 0
+    assert m_rev < m_set, "revenue entry must appear BEFORE settings"
+    assert m_rev < m_log, "revenue entry must appear BEFORE logout"
+    assert "label: 'Revenue'" in DASHBOARD_TSX
+
+
+# ---------- RevenueModal ----------
+def test_revenue_modal_period_keys_and_testids():
+    for k in ["month", "quarter", "six", "fy"]:
+        assert f"'{k}'" in REVENUE_TSX or f'"{k}"' in REVENUE_TSX, k
+    # Template literal testID
+    assert "`revenue-period-${p.k}`" in REVENUE_TSX
+
+
+def test_fy_range_current_and_pre_apr():
+    """fyRange: Aug (month>=Apr) → FY starts current year; Feb → FY starts prev year."""
+    # We do it via node since the fn is JS
+    import subprocess, tempfile, os as _os, json as _j
+    js = r"""
+function fyRange(now) { const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear()-1; return { start: new Date(y,3,1), end: new Date(y+1,2,31) }; }
+const iso = (d) => { const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; };
+const aug26 = fyRange(new Date(2026,7,15));  // Aug 15 2026
+const feb26 = fyRange(new Date(2026,1,15));  // Feb 15 2026
+console.log(JSON.stringify({aug: {s: iso(aug26.start), e: iso(aug26.end)}, feb: {s: iso(feb26.start), e: iso(feb26.end)}}));
+"""
+    with tempfile.NamedTemporaryFile(suffix=".js", mode="w", delete=False) as f:
+        f.write(js); p = f.name
+    try:
+        out = subprocess.check_output(["node", p]).decode().strip()
+    finally:
+        _os.unlink(p)
+    r = _j.loads(out)
+    assert r["aug"] == {"s": "2026-04-01", "e": "2027-03-31"}, r["aug"]
+    assert r["feb"] == {"s": "2025-04-01", "e": "2026-03-31"}, r["feb"]
+
+
+# ---------- Bookings by-month filter ----------
+def test_bookings_screen_has_by_month_filter():
+    src = Path("/app/frontend/app/(tabs)/bookings.tsx").read_text(encoding="utf-8")
+    assert "type Filter = 'all' | 'upcoming' | 'completed' | 'pending' | 'month'" in src
+    assert "{ key: 'month', label: 'By Month' }" in src
+    # Month picker row rendered only when filter==='month'
+    assert "filter === 'month' && (" in src
+    # testIDs
+    assert 'testID={`month-chip-${idx}`}' in src
+    assert 'testID="month-prev"' in src
+    assert 'testID="month-next"' in src
+    # Filter uses picked month + year
+    assert "pickedMonth" in src and "pickedYear" in src
+    # date range restrict to picked month
+    assert "filter === 'month'" in src

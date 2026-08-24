@@ -68,6 +68,20 @@ export const toLocalISODate = (d: Date): string => {
   return `${y}-${m}-${day}`;
 };
 
+// Parse "YYYY-MM-DD" into a local Date at midnight (avoids UTC parsing).
+export const parseLocalISODate = (iso: string): Date => {
+  const [y, m, d] = iso.split('-').map((v) => parseInt(v, 10));
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
+// Whole-day difference (event - today) using local calendar days.
+export const daysUntil = (iso: string): number => {
+  const t = new Date();
+  const today0 = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  const ev = parseLocalISODate(iso);
+  return Math.round((ev.getTime() - today0.getTime()) / 86400000);
+};
+
 export const formatDate = (iso: string): string => {
   const d = new Date(iso);
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];

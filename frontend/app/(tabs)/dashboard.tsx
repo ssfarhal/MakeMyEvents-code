@@ -14,6 +14,8 @@ import { EmptyState } from '@/src/EmptyState';
 import SettingsBottomSheet from '@/src/SettingsBottomSheet';
 import ReportModal from '@/src/ReportModal';
 import MenuSheet from '@/src/MenuSheet';
+import NotificationSheet, { overdueBookings } from '@/src/NotificationSheet';
+import RevenueModal from '@/src/RevenueModal';
 import { Booking } from '@/src/api';
 
 export default function Dashboard() {
@@ -25,6 +27,8 @@ export default function Dashboard() {
   const [showSettings, setShowSettings] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showNotif, setShowNotif] = useState(false);
+  const [showRevenue, setShowRevenue] = useState(false);
   const router = useRouter();
 
   React.useEffect(() => {
@@ -42,19 +46,14 @@ export default function Dashboard() {
   const upcoming = bookings.filter((b) => b.eventDate >= todayISO && b.status !== 'cancelled').slice(0, 4);
 
   const kpis = useMemo(() => {
-    const m = now.getMonth(), y = now.getFullYear();
-    let monthlyRevenue = 0, pendingBalance = 0, upcomingCount = 0;
+    let upcomingCount = 0;
     for (const b of bookings) {
-      const d = new Date(b.eventDate);
-      if (d.getMonth() === m && d.getFullYear() === y) monthlyRevenue += b.advancePaid || 0;
-      const bal = (b.totalAmount || 0) - (b.advancePaid || 0);
-      if (b.eventDate >= todayISO && b.status !== 'cancelled') {
-        upcomingCount++;
-        if (bal > 0 && b.status !== 'completed') pendingBalance += bal;
-      }
+      if (b.eventDate >= todayISO && b.status !== 'cancelled') upcomingCount++;
     }
-    return { monthlyRevenue, pendingBalance, upcomingCount };
+    return { upcomingCount };
   }, [bookings, todayISO]);
+
+  const notifCount = useMemo(() => overdueBookings(bookings).length, [bookings]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -62,6 +61,12 @@ export default function Dashboard() {
         <Image source={require('../../assets/logo.png')} style={styles.brandLogo} />
         <Text style={styles.brand} numberOfLines={1}>{user?.hallName || 'MakeMyEvents'}</Text>
         <View style={{ flex: 1 }} />
+        <Pressable testID="open-notif-btn" onPress={() => setShowNotif(true)} style={styles.iconBtn}>
+          <Ionicons name={notifCount > 0 ? 'notifications' : 'notifications-outline'} size={22} color={notifCount > 0 ? Colors.warning : Colors.onSurface} />
+          {notifCount > 0 && (
+            <View style={styles.badge}><Text style={styles.badgeText}>{notifCount > 9 ? '9+' : notifCount}</Text></View>
+          )}
+        </Pressable>
         <Pressable testID="open-menu-btn" onPress={() => setShowMenu(true)} style={styles.menuBtn}>
           <Ionicons name="menu" size={22} color={Colors.onSurface} />
         </Pressable>
@@ -84,11 +89,9 @@ export default function Dashboard() {
           <Text style={styles.heroDate}>{formatFullDate(now)}</Text>
         </LinearGradient>
 
-        {/* KPI row */}
-        <View style={styles.kpiRow}>
-          <KpiCard color={Colors.primary} bg={Colors.primaryContainer} icon="cash" label={'Monthly\nRevenue'} value={formatINRFull(kpis.monthlyRevenue)} />
-          <KpiCard color={Colors.secondary} bg={Colors.secondaryContainer} icon="calendar" label={'Upcoming\nEvents'} value={String(kpis.upcomingCount)} />
-          <KpiCard color={Colors.warning} bg={Colors.warningContainer} icon="wallet" label={'Pending\nBalance'} value={formatINRFull(kpis.pendingBalance)} isAlert={kpis.pendingBalance > 0} />
+        {/* KPI row — Upcoming Events only, Revenue moved to menu → Revenue */}
+        <View style={[styles.kpiRow, { justifyContent: 'center' }]}>
+          <KpiCard color={Colors.secondary} bg={Colors.secondaryContainer} icon="calendar" label={'Upcoming Events'} value={String(kpis.upcomingCount)} wide />
         </View>
 
         <View style={styles.sectionRow}>
@@ -169,11 +172,26 @@ export default function Dashboard() {
         ownerName={user?.ownerName}
         ownerEmail={user?.email}
         items={[
+          { key: 'revenue', label: 'Revenue', icon: 'wallet-outline', onPress: () => setShowRevenue(true) },
           { key: 'reports', label: 'Reports', icon: 'document-text-outline', onPress: () => setShowReport(true) },
           { key: 'settings', label: 'Business Settings', icon: 'settings-outline', onPress: () => setShowSettings(true) },
           { key: 'seed', label: 'Load Demo Bookings', icon: 'sparkles-outline', onPress: seed, hidden: bookings.length > 0 || loading },
           { key: 'logout', label: 'Sign out', icon: 'log-out-outline', onPress: signOut, destructive: true },
         ]}
+      />
+
+      <NotificationSheet
+        visible={showNotif}
+        onClose={() => setShowNotif(false)}
+        bookings={bookings}
+        ownerName={user?.ownerName}
+        onOpenBooking={(b) => setDetail(b)}
+      />
+
+      <RevenueModal
+        visible={showRevenue}
+        onClose={() => setShowRevenue(false)}
+        bookings={bookings}
       />
     </SafeAreaView>
   );
@@ -193,9 +211,9 @@ function SettingsModal({ visible, initialName, initialAddress, initialPhone, ini
   );
 }
 
-function KpiCard({ color, bg, icon, label, value, isAlert }: any) {
+function KpiCard({ color, bg, icon, label, value, isAlert, wide }: any) {
   return (
-    <View style={[styles.kpi, isAlert && { borderWidth: 1.5, borderColor: Colors.warning + '77' }]}>
+    <View style={[styles.kpi, wide && { flex: 0, minWidth: 260 }, isAlert && { borderWidth: 1.5, borderColor: Colors.warning + '77' }]}>
       <View style={[styles.kpiIcon, { backgroundColor: bg }]}>
         <Ionicons name={icon} size={18} color={color} />
       </View>
@@ -211,7 +229,9 @@ const styles = StyleSheet.create({
   brandLogo: { width: 32, height: 32, marginRight: 8 },
   brand: { fontSize: 17, fontWeight: '800', color: Colors.primary },
   iconBtn: { padding: 8 },
-  menuBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: Colors.outlineVariant, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  badge: { position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: Colors.error, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  menuBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: Colors.outlineVariant, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2, marginLeft: 4 },
   hero: { borderRadius: 20, padding: 20, marginBottom: 16 },
   availPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.20)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 12 },
   dot: { width: 7, height: 7, borderRadius: 4, marginRight: 6 },

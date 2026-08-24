@@ -1,0 +1,29 @@
+{
+  "summary": "Verified iteration-9 batch changes for MakeMyEvents. Added 14 new pytest cases covering: backend auto-complete of past bookings in list_bookings (monkeypatched db), theme.ts parseLocalISODate + daysUntil (node runtime under TZ=Asia/Kolkata: today=0, tomorrow=1, +5=5, yesterday=-1), BookingCard uses daysUntil (no Math.ceil), BookingDetailSheet has no 'done-btn' testID/label + edit-btn+cancel-btn present, AddBookingSheet input-customEventName + isValid guard, invoice/report filename patterns + renameForShare, NotificationSheet.overdueBookings + exact message pattern, dashboard single KpiCard (Upcoming Events) + Revenue menu before settings+logout, RevenueModal period keys + testIDs + fyRange behaviour (Aug 2026 → 1 Apr 2026 to 31 Mar 2027; Feb 2026 → 1 Apr 2025 to 31 Mar 2026), bookings screen by-month filter (Filter 'month', month-chip-*/month-prev/month-next testIDs). Also updated two obsolete iter-5 tests to match the new dashboard design (KPI reduced to Upcoming count, report-btn testID removed). Final: 79/79 pytest pass (5 warnings, all pre-existing FastAPI on_event deprecations). Backend health OK. Login screen renders on 375x667 mobile viewport with 'Continue with Google' button; no red-screen errors. Did NOT complete OAuth per instructions.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_makemyevents.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/tmp/login_iter9.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py still uses deprecated @app.on_event('startup'/'shutdown') — non-blocking; FastAPI recommends lifespan handlers. Not new to this iteration.",
+    "AddBookingSheet.tsx line 134 uses `formatDate(date.toISOString())` for placeholder display. Safe since formatDate uses local getters, but for consistency with the rest of the codebase could use toLocalISODate → formatDate. Non-blocking.",
+    "list_bookings performs an unconditional update_many on every GET — fine for current data volume but consider indexing on (user_id, status, eventDate) to keep scans cheap as bookings grow. Existing index is (user_id, eventDate)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_makemyevents.py"
+  ],
+  "success_rate": {"backend": "100% (79/79 pytest)", "frontend": "100% (static verification + login render)"},
+  "seed_data_creation": "None — auto-complete test uses in-memory monkeypatched fake DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All static + logic guards for iter-9 batch changes are locked in test_makemyevents.py. If further changes touch dashboard KPI count, Revenue menu order, RevenueModal period keys, NotificationSheet message copy, invoice/report filename patterns, list_bookings auto-complete rule, AddBookingSheet 'Other' event handling, BookingDetailSheet Done removal, or BookingCard day-diff logic, the corresponding tests will catch regressions. Google OAuth (Emergent auth) blocks automated login in preview so authenticated flows must be verified manually by the user or via an authenticated E2E harness."
+}

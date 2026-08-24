@@ -103,11 +103,6 @@ export default function BookingDetailSheet({ booking, hallName, hallAddress, own
     } finally { setCollectBusy(false); }
   };
 
-  const markDone = async () => {
-    await onUpdate(booking.id, { status: 'completed' });
-    onClose();
-  };
-
   const cancelBooking = () => {
     Alert.alert('Cancel Booking?', `Cancel booking for "${booking.clientName}"?`, [
       { text: 'Keep' },
@@ -264,15 +259,16 @@ export default function BookingDetailSheet({ booking, hallName, hallAddress, own
               <Text style={styles.invoiceText}>{Platform.OS === 'web' ? 'Print Invoice' : 'Share PDF Invoice'}</Text>
             </Pressable>
 
-            {/* Actions */}
-            {!isCancelled && !isCompleted && (
+            {/* Actions — Edit + Cancel always available for non-cancelled bookings */}
+            {!isCancelled ? (
               <View style={styles.actionsRow}>
                 <ActionBtn testID="edit-btn" icon="create-outline" label="Edit" color={Colors.primary} onPress={() => { onEdit(booking); onClose(); }} outline />
-                <ActionBtn testID="cancel-btn" icon="close-circle-outline" label="Cancel" color={Colors.warning} onPress={cancelBooking} outline />
-                <ActionBtn testID="done-btn" icon="checkmark-circle" label="Done" color={Colors.success} onPress={markDone} />
+                {!isCompleted && (
+                  <ActionBtn testID="cancel-btn" icon="close-circle-outline" label="Cancel" color={Colors.warning} onPress={cancelBooking} outline />
+                )}
+                <ActionBtn testID="header-delete-inline-btn" icon="trash-outline" label="Delete" color={Colors.error} onPress={deleteBooking} />
               </View>
-            )}
-            {(isCancelled || isCompleted) && (
+            ) : (
               <Pressable onPress={deleteBooking} style={styles.deleteBtn} testID="delete-btn">
                 <Ionicons name="trash-outline" size={16} color="#fff" />
                 <Text style={styles.deleteText}>Delete Booking</Text>

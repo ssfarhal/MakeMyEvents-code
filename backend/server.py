@@ -207,6 +207,16 @@ async def logout(authorization: Optional[str] = Header(default=None)):
 @api_router.get("/bookings", response_model=List[Booking])
 async def list_bookings(authorization: Optional[str] = Header(default=None)):
     user = await get_current_user(authorization)
+    # Auto-complete past events (except cancelled/completed) so status reflects reality.
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    await db.bookings.update_many(
+        {
+            "user_id": user["user_id"],
+            "status": {"$nin": ["cancelled", "completed"]},
+            "eventDate": {"$lt": today_iso},
+        },
+        {"$set": {"status": "completed"}},
+    )
     docs = await db.bookings.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(1000)
     return [Booking(**d) for d in docs]
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, eventTypeColor, formatDate, formatINRFull } from './theme';
+import { Colors, eventTypeColor, formatDate, formatINRFull, daysUntil } from './theme';
 import { Booking } from './api';
 
 const iconFor = (t: string) => {
@@ -29,8 +29,7 @@ export function BookingCard({ booking, onPress }: { booking: Booking; onPress: (
   const color = eventTypeColor(booking.eventType);
   const balance = (booking.totalAmount || 0) - (booking.advancePaid || 0);
   const pill = statusPill(booking.status);
-  const d = new Date(booking.eventDate);
-  const days = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const days = daysUntil(booking.eventDate);
 
   return (
     <Pressable

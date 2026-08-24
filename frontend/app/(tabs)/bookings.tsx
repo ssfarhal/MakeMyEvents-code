@@ -11,7 +11,8 @@ import BookingDetailSheet from '@/src/BookingDetailSheet';
 import { EmptyState, SkeletonCard } from '@/src/EmptyState';
 import { Booking } from '@/src/api';
 
-type Filter = 'all' | 'upcoming' | 'completed' | 'pending';
+type Filter = 'all' | 'upcoming' | 'completed' | 'pending' | 'month';
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 export default function Bookings() {
   const { user } = useAuth();
@@ -22,6 +23,9 @@ export default function Bookings() {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Booking | null>(null);
   const [detail, setDetail] = useState<Booking | null>(null);
+  const now = new Date();
+  const [pickedMonth, setPickedMonth] = useState<number>(now.getMonth());
+  const [pickedYear, setPickedYear] = useState<number>(now.getFullYear());
 
   const todayISO = toLocalISODate(new Date());
 
@@ -40,14 +44,21 @@ export default function Bookings() {
     if (filter === 'upcoming') list = list.filter((b) => b.eventDate >= todayISO && b.status !== 'cancelled');
     if (filter === 'completed') list = list.filter((b) => b.status === 'completed');
     if (filter === 'pending') list = list.filter((b) => (b.totalAmount - b.advancePaid) > 0 && b.status !== 'completed');
+    if (filter === 'month') {
+      list = list.filter((b) => {
+        const d = new Date(b.eventDate);
+        return d.getMonth() === pickedMonth && d.getFullYear() === pickedYear;
+      });
+    }
     return list.slice().sort((a, b) => a.eventDate.localeCompare(b.eventDate));
-  }, [bookings, filter, q, todayISO]);
+  }, [bookings, filter, q, todayISO, pickedMonth, pickedYear]);
 
   const filters: { key: Filter; label: string; count?: number }[] = [
     { key: 'all', label: 'All', count: counts.all },
     { key: 'upcoming', label: 'Upcoming', count: counts.upcoming },
     { key: 'completed', label: 'Completed' },
     { key: 'pending', label: 'Pending Balance', count: counts.pending },
+    { key: 'month', label: 'By Month' },
   ];
 
   // Keep detail booking in sync with bookings list
@@ -118,6 +129,30 @@ export default function Bookings() {
 
       <Text style={styles.countText}>{filtered.length} booking{filtered.length !== 1 ? 's' : ''}</Text>
 
+      {filter === 'month' && (
+        <View style={styles.monthPickerRow}>
+          <Pressable onPress={() => { const p = new Date(pickedYear, pickedMonth - 1, 1); setPickedMonth(p.getMonth()); setPickedYear(p.getFullYear()); }} style={styles.monthNav} testID="month-prev">
+            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+          </Pressable>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 8 }}>
+            {MONTH_NAMES.map((m, idx) => (
+              <Pressable
+                key={m}
+                onPress={() => setPickedMonth(idx)}
+                style={[styles.mChip, pickedMonth === idx && { backgroundColor: Colors.primary, borderColor: Colors.primary }]}
+                testID={`month-chip-${idx}`}
+              >
+                <Text style={[styles.mChipText, pickedMonth === idx && { color: '#fff' }]}>{m}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Text style={styles.yearText}>{pickedYear}</Text>
+          <Pressable onPress={() => { const p = new Date(pickedYear, pickedMonth + 1, 1); setPickedMonth(p.getMonth()); setPickedYear(p.getFullYear()); }} style={styles.monthNav} testID="month-next">
+            <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+          </Pressable>
+        </View>
+      )}
+
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingTop: 0, paddingBottom: 160 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={Colors.primary} />}
@@ -184,6 +219,11 @@ const styles = StyleSheet.create({
   chipCount: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, backgroundColor: Colors.primary + '22' },
   chipCountText: { fontSize: 11, fontWeight: '700', color: Colors.primary },
   countText: { fontSize: 12, color: Colors.muted, paddingHorizontal: 16, paddingBottom: 4, fontWeight: '500' },
+  monthPickerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingBottom: 10, gap: 4 },
+  monthNav: { width: 30, height: 30, borderRadius: 8, backgroundColor: Colors.primaryContainer, alignItems: 'center', justifyContent: 'center' },
+  mChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: Colors.outline, backgroundColor: Colors.surfaceVariant, flexShrink: 0 },
+  mChipText: { fontSize: 12, fontWeight: '700', color: Colors.onSurfaceVariant },
+  yearText: { fontSize: 12, fontWeight: '800', color: Colors.primary, marginHorizontal: 4 },
   fab: { position: 'absolute', right: 16, bottom: 100, backgroundColor: Colors.primary, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8 },
   fabText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });
