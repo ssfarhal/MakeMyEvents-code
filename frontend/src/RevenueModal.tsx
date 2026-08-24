@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors, formatINRFull, formatDate } from './theme';
 import { Booking } from './api';
 
-type Period = 'month' | 'quarter' | 'six' | 'fy';
+type Period = 'month' | 'quarter' | 'six' | 'fy' | 'custom';
 
 type Props = {
   visible: boolean;
@@ -42,7 +43,17 @@ const iso = (d: Date) => {
 
 export default function RevenueModal({ visible, onClose, bookings }: Props) {
   const [period, setPeriod] = useState<Period>('fy');
-  const { start, end, label } = useMemo(() => computeRange(period), [period]);
+  const [customStart, setCustomStart] = useState<Date>(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [customEnd, setCustomEnd] = useState<Date>(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0); });
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+
+  const { start, end, label } = useMemo(() => {
+    if (period === 'custom') {
+      return { start: customStart, end: customEnd, label: 'Custom Date Range' };
+    }
+    return computeRange(period);
+  }, [period, customStart, customEnd]);
   const startISO = iso(start);
   const endISO = iso(end);
 
@@ -77,12 +88,38 @@ export default function RevenueModal({ visible, onClose, bookings }: Props) {
                 { k: 'quarter' as const, l: 'Quarterly' },
                 { k: 'six' as const, l: '6 Months' },
                 { k: 'fy' as const, l: 'Annual (FY)' },
+                { k: 'custom' as const, l: 'Custom Date' },
               ].map((p) => (
                 <Pressable key={p.k} onPress={() => setPeriod(p.k)} style={[styles.chip, { flexShrink: 0 }, period === p.k && { backgroundColor: Colors.primary }]} testID={`revenue-period-${p.k}`}>
                   <Text style={[styles.chipText, period === p.k && { color: '#fff' }]}>{p.l}</Text>
                 </Pressable>
               ))}
             </View>
+
+            {period === 'custom' && (
+              <View style={styles.customRow}>
+                <Pressable onPress={() => setShowStartPicker(true)} style={styles.dateBtn} testID="rev-custom-start">
+                  <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={styles.dateHint}>From</Text>
+                    <Text style={styles.dateVal}>{formatDate(iso(customStart))}</Text>
+                  </View>
+                </Pressable>
+                <Pressable onPress={() => setShowEndPicker(true)} style={styles.dateBtn} testID="rev-custom-end">
+                  <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={styles.dateHint}>To</Text>
+                    <Text style={styles.dateVal}>{formatDate(iso(customEnd))}</Text>
+                  </View>
+                </Pressable>
+              </View>
+            )}
+            {showStartPicker && (
+              <DateTimePicker value={customStart} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(e, d) => { if (Platform.OS === 'android') setShowStartPicker(false); if (d) setCustomStart(d); }} />
+            )}
+            {showEndPicker && (
+              <DateTimePicker value={customEnd} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(e, d) => { if (Platform.OS === 'android') setShowEndPicker(false); if (d) setCustomEnd(d); }} />
+            )}
 
             <View style={styles.kpiRow}>
               <KpiTile color={Colors.primary} bg={Colors.primaryContainer} icon="cash" label={'Revenue\nCollected'} value={formatINRFull(revenue)} />
@@ -93,7 +130,7 @@ export default function RevenueModal({ visible, onClose, bookings }: Props) {
               <KpiTile color={Colors.success} bg={Colors.successContainer} icon="stats-chart" label={'Booking\nValue'} value={formatINRFull(totalValue)} />
             </View>
 
-            <Text style={styles.sectionTitle}>Bookings in this period</Text>
+            <Text style={styles.sectionTitle}>Booking Details ({inRange.length})</Text>
             {inRange.length === 0 ? (
               <View style={{ padding: 30, alignItems: 'center' }}>
                 <Text style={{ color: Colors.muted }}>No bookings in this range.</Text>
@@ -155,4 +192,8 @@ const styles = StyleSheet.create({
   rowName: { fontSize: 14, fontWeight: '700', color: Colors.onSurface },
   rowMeta: { fontSize: 11, color: Colors.muted, marginTop: 2 },
   rowAmt: { fontSize: 14, fontWeight: '800' },
+  customRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  dateBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceVariant, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: Colors.outline },
+  dateHint: { fontSize: 10, color: Colors.muted },
+  dateVal: { fontSize: 12, fontWeight: '700', color: Colors.onSurface, marginTop: 2 },
 });
