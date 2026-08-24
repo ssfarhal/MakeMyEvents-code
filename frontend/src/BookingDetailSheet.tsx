@@ -124,14 +124,16 @@ export default function BookingDetailSheet({ booking, hallName, hallAddress, own
 
   const sendWhatsAppReminder = async () => {
     if (!booking.phone) { Alert.alert('No phone', 'Client phone number is missing.'); return; }
+    // Strip +91 / 91 country code and non-digits from owner phone for message body
+    const ownerPhoneClean = (ownerPhone || '').replace(/\D/g, '').replace(/^91/, '').slice(-10);
     const msg =
-`Dear ${booking.clientName},
-Greetings from ${hallName || 'our convention hall'}! 🙏
-This is a gentle reminder regarding the pending balance of ${formatINRFull(balance)} for your booking on ${formatDate(booking.eventDate)}.
-Please clear the remaining pending amount. You can make the payment via UPI ${ownerPhone || ''}, bank transfer, or cash.
+`Dear *${booking.clientName}*,
+Greetings from *${hallName || 'our convention hall'}*! 🙏
+This is a gentle reminder regarding the pending balance of *${formatINRFull(balance)}* for your booking on *${formatDate(booking.eventDate)}*.
+Please clear the remaining pending amount. You can make the payment via Phonepe/Gpay *${ownerPhoneClean}*, bank transfer, or cash.
 Kindly share the payment screenshot once done. Thank you for choosing us!
 Best regards,
-${ownerName || 'Owner'}`;
+*${ownerName || 'Owner'}*`;
     const encoded = encodeURIComponent(msg);
     // wa.me requires phone with country code, no +.
     const num = `91${(booking.phone || '').replace(/\D/g, '').slice(-10)}`;
