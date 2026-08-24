@@ -57,6 +57,11 @@ class Payment(BaseModel):
     date: str  # ISO datetime
 
 
+class ChargeItem(BaseModel):
+    label: str
+    amount: float = 0.0
+
+
 class Booking(BaseModel):
     id: Optional[str] = None
     user_id: str
@@ -71,6 +76,7 @@ class Booking(BaseModel):
     payments: List[Payment] = []
     status: str = "confirmed"
     notes: Optional[str] = ""
+    charges: List[ChargeItem] = []
     createdAt: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -89,6 +95,7 @@ class BookingCreate(BaseModel):
     advancePaid: float = 0.0
     status: str = "confirmed"
     notes: Optional[str] = ""
+    charges: List[ChargeItem] = []
 
 
 class BookingUpdate(BaseModel):
@@ -102,6 +109,7 @@ class BookingUpdate(BaseModel):
     advancePaid: Optional[float] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+    charges: Optional[List[ChargeItem]] = None
 
 
 # ---------- Auth helper ----------

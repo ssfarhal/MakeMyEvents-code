@@ -1,12 +1,21 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Colors, eventTypeColor, formatDate, toLocalISODate } from './theme';
-import { Booking } from './api';
+import { Colors, eventTypeColor, formatDate, formatINRFull, toLocalISODate } from './theme';
+import { Booking, ChargeItem } from './api';
 
 const EVENT_TYPES = ['Wedding', 'Reception', 'Engagement', 'Birthday', 'Corporate', 'Other'];
+
+const FIXED_CHARGES: { label: string; icon: any }[] = [
+  { label: 'Hall Rent', icon: 'business-outline' },
+  { label: 'Labor Charges', icon: 'people-circle-outline' },
+  { label: 'Electricity Charges', icon: 'flash-outline' },
+  { label: 'Maintenance Fee', icon: 'construct-outline' },
+];
+
+const EXTRA_SLOTS = 3;
 
 type Props = {
   visible: boolean;
@@ -25,7 +34,8 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [functionTime, setFunctionTime] = useState<'Day' | 'Night'>('Day');
   const [guestCount, setGuestCount] = useState('');
-  const [totalAmount, setTotalAmount] = useState('');
+  const [fixedAmounts, setFixedAmounts] = useState<Record<string, string>>({});
+  const [extraCharges, setExtraCharges] = useState<{ label: string; amount: string }[]>([]);
   const [advancePaid, setAdvancePaid] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
@@ -41,22 +51,72 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
       setDate(existing?.eventDate ? new Date(existing.eventDate) : (prefillDate || null));
       setFunctionTime((existing?.functionTime as any) || 'Day');
       setGuestCount(existing ? String(existing.guestCount) : '');
-      setTotalAmount(existing ? String(existing.totalAmount) : '');
       setAdvancePaid(existing ? String(existing.advancePaid || 0) : '');
       setNotes(existing?.notes || '');
+
+      // Rehydrate charges
+      const fixedInit: Record<string, string> = {};
+      FIXED_CHARGES.forEach((c) => { fixedInit[c.label] = ''; });
+      const extraInit: { label: string; amount: string }[] = Array.from({ length: EXTRA_SLOTS }, () => ({ label: '', amount: '' }));
+
+      const savedCharges = existing?.charges || [];
+      if (savedCharges.length > 0) {
+        const fixedLabels = FIXED_CHARGES.map((c) => c.label);
+        let extraIdx = 0;
+        for (const c of savedCharges) {
+          if (fixedLabels.includes(c.label)) {
+            fixedInit[c.label] = c.amount ? String(c.amount) : '';
+          } else if (extraIdx < EXTRA_SLOTS) {
+            extraInit[extraIdx] = { label: c.label || '', amount: c.amount ? String(c.amount) : '' };
+            extraIdx += 1;
+          }
+        }
+      } else if (existing && existing.totalAmount) {
+        // Legacy booking: seed Hall Rent with the existing total so edit doesn't lose data
+        fixedInit['Hall Rent'] = String(existing.totalAmount);
+      }
+      setFixedAmounts(fixedInit);
+      setExtraCharges(extraInit);
     }
   }, [visible, existing, prefillDate]);
 
+  const totalAmount = useMemo(() => {
+    let sum = 0;
+    for (const c of FIXED_CHARGES) sum += parseFloat(fixedAmounts[c.label] || '0') || 0;
+    for (const e of extraCharges) sum += parseFloat(e.amount || '0') || 0;
+    return sum;
+  }, [fixedAmounts, extraCharges]);
+
   const finalEventType = eventType === 'Other' ? (customEventName.trim() || 'Other') : eventType;
-  const isValid = clientName.trim() && phone.trim().length >= 10 && date && totalAmount && (eventType !== 'Other' || customEventName.trim());
+  const isValid = clientName.trim() && phone.trim().length >= 10 && date && totalAmount > 0 && (eventType !== 'Other' || customEventName.trim());
+
+  const setFixedAmount = (label: string, val: string) => {
+    setFixedAmounts((prev) => ({ ...prev, [label]: val.replace(/[^0-9.]/g, '') }));
+  };
+  const setExtraLabel = (idx: number, val: string) => {
+    setExtraCharges((prev) => prev.map((it, i) => (i === idx ? { ...it, label: val } : it)));
+  };
+  const setExtraAmount = (idx: number, val: string) => {
+    setExtraCharges((prev) => prev.map((it, i) => (i === idx ? { ...it, amount: val.replace(/[^0-9.]/g, '') } : it)));
+  };
 
   const submit = async () => {
     if (!isValid || !date) {
-      Alert.alert('Missing info', 'Fill client, phone, date and total amount.');
+      Alert.alert('Missing info', 'Fill client, phone, date and at least one charge amount.');
       return;
     }
     setBusy(true);
     try {
+      const charges: ChargeItem[] = [];
+      for (const c of FIXED_CHARGES) {
+        const amt = parseFloat(fixedAmounts[c.label] || '0') || 0;
+        if (amt > 0) charges.push({ label: c.label, amount: amt });
+      }
+      for (const e of extraCharges) {
+        const amt = parseFloat(e.amount || '0') || 0;
+        const label = e.label.trim();
+        if (amt > 0 && label) charges.push({ label, amount: amt });
+      }
       await onSubmit({
         clientName: clientName.trim(),
         phone: phone.trim(),
@@ -64,10 +124,11 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
         eventDate: toLocalISODate(date),
         functionTime,
         guestCount: parseInt(guestCount || '0', 10),
-        totalAmount: parseFloat(totalAmount || '0'),
+        totalAmount,
         advancePaid: parseFloat(advancePaid || '0'),
         notes: notes.trim(),
-      });
+        charges,
+      } as any);
       onClose();
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to save');
@@ -176,7 +237,57 @@ export default function AddBookingSheet({ visible, onClose, onSubmit, existing, 
             <Field icon="people-outline" placeholder="Expected Guest Count" value={guestCount} onChangeText={(v: string) => setGuestCount(v.replace(/\D/g, ''))} keyboardType="number-pad" testID="input-guestCount" />
 
             <Text style={styles.section}>Financial Details</Text>
-            <Field icon="cash-outline" placeholder="Total Amount (₹) *" value={totalAmount} onChangeText={(v: string) => setTotalAmount(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" testID="input-totalAmount" />
+            <Text style={styles.helperText}>Enter each charge below — Total Amount adds up automatically.</Text>
+
+            {FIXED_CHARGES.map((c) => (
+              <Field
+                key={c.label}
+                icon={c.icon}
+                placeholder={`${c.label} (₹)`}
+                value={fixedAmounts[c.label] || ''}
+                onChangeText={(v: string) => setFixedAmount(c.label, v)}
+                keyboardType="decimal-pad"
+                testID={`input-${c.label.replace(/\s+/g, '')}`}
+              />
+            ))}
+
+            <Text style={styles.subLabel}>Additional Charges (optional)</Text>
+            {extraCharges.map((row, idx) => (
+              <View key={idx} style={styles.extraRow}>
+                <View style={[fs.wrap, { flex: 1.2, marginRight: 8, marginBottom: 0 }]}>
+                  <Ionicons name="add-circle-outline" size={18} color={Colors.onSurfaceVariant} style={{ marginRight: 8 }} />
+                  <TextInput
+                    placeholder={`Charge ${idx + 1} name`}
+                    placeholderTextColor={Colors.muted}
+                    style={fs.input}
+                    value={row.label}
+                    onChangeText={(v) => setExtraLabel(idx, v)}
+                    testID={`input-extraLabel-${idx}`}
+                  />
+                </View>
+                <View style={[fs.wrap, { flex: 1, marginBottom: 0 }]}>
+                  <Text style={{ color: Colors.onSurfaceVariant, marginRight: 6, fontWeight: '700' }}>₹</Text>
+                  <TextInput
+                    placeholder="Amount"
+                    placeholderTextColor={Colors.muted}
+                    style={fs.input}
+                    value={row.amount}
+                    onChangeText={(v) => setExtraAmount(idx, v)}
+                    keyboardType="decimal-pad"
+                    testID={`input-extraAmount-${idx}`}
+                  />
+                </View>
+              </View>
+            ))}
+
+            <View style={styles.totalCard} testID="computed-totalAmount">
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="cash-outline" size={20} color={Colors.primary} />
+                <Text style={styles.totalLabel}>Total Amount</Text>
+              </View>
+              <Text style={styles.totalValue}>{formatINRFull(totalAmount)}</Text>
+            </View>
+
             <Field icon="wallet-outline" placeholder="Advance Paid (₹)" value={advancePaid} onChangeText={(v: string) => setAdvancePaid(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" testID="input-advancePaid" />
 
             <Text style={styles.section}>Additional Notes</Text>
@@ -213,6 +324,12 @@ const styles = StyleSheet.create({
   title: { flex: 1, fontSize: 18, fontWeight: '800', color: Colors.onSurface, textAlign: 'center' },
   content: { padding: 20, paddingBottom: 40 },
   section: { fontSize: 13, fontWeight: '700', color: Colors.primary, marginTop: 12, marginBottom: 8, letterSpacing: 0.3 },
+  helperText: { fontSize: 12, color: Colors.muted, marginBottom: 10 },
+  subLabel: { fontSize: 12, fontWeight: '700', color: Colors.onSurfaceVariant, marginTop: 6, marginBottom: 8, letterSpacing: 0.2 },
+  extraRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  totalCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.primary + '10', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, marginTop: 6, marginBottom: 10, borderWidth: 1, borderColor: Colors.primary + '33' },
+  totalLabel: { fontSize: 14, fontWeight: '800', color: Colors.primary, marginLeft: 8 },
+  totalValue: { fontSize: 18, fontWeight: '900', color: Colors.primary },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   typeChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: Colors.outline, backgroundColor: Colors.surfaceVariant },
   typeDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },

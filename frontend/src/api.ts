@@ -72,6 +72,8 @@ export const api = {
 
 export type Payment = { amount: number; date: string };
 
+export type ChargeItem = { label: string; amount: number };
+
 export type Booking = {
   id: string;
   clientName: string;
@@ -85,4 +87,5 @@ export type Booking = {
   payments?: Payment[];
   status: string;
   notes?: string;
+  charges?: ChargeItem[];
 };
