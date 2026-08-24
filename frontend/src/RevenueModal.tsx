@@ -129,29 +129,6 @@ export default function RevenueModal({ visible, onClose, bookings }: Props) {
               <KpiTile color={Colors.secondary} bg={Colors.secondaryContainer} icon="calendar" label={'Bookings'} value={String(inRange.length)} />
               <KpiTile color={Colors.success} bg={Colors.successContainer} icon="stats-chart" label={'Booking\nValue'} value={formatINRFull(totalValue)} />
             </View>
-
-            <Text style={styles.sectionTitle}>Booking Details ({inRange.length})</Text>
-            {inRange.length === 0 ? (
-              <View style={{ padding: 30, alignItems: 'center' }}>
-                <Text style={{ color: Colors.muted }}>No bookings in this range.</Text>
-              </View>
-            ) : (
-              inRange.slice().sort((a, b) => a.eventDate.localeCompare(b.eventDate)).map((b) => {
-                const bal = (b.totalAmount || 0) - (b.advancePaid || 0);
-                return (
-                  <View key={b.id} style={styles.row}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.rowName}>{b.clientName}</Text>
-                      <Text style={styles.rowMeta}>{b.eventType} • {formatDate(b.eventDate)} • #{b.id}</Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={[styles.rowAmt, { color: Colors.success }]}>{formatINRFull(b.advancePaid || 0)}</Text>
-                      {bal > 0 && <Text style={[styles.rowMeta, { color: Colors.warning }]}>Bal {formatINRFull(bal)}</Text>}
-                    </View>
-                  </View>
-                );
-              })
-            )}
           </ScrollView>
         </View>
       </View>
