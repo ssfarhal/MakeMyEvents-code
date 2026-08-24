@@ -61,10 +61,6 @@ export default function Dashboard() {
         <Image source={require('../../assets/logo.png')} style={styles.brandLogo} />
         <Text style={styles.brand} numberOfLines={1}>{user?.hallName || 'MakeMyEvents'}</Text>
         <View style={{ flex: 1 }} />
-        <View style={styles.upcomingPill} testID="upcoming-pill">
-          <Ionicons name="calendar" size={12} color={Colors.secondary} />
-          <Text style={styles.upcomingPillText}>{kpis.upcomingCount}</Text>
-        </View>
         <Pressable testID="open-notif-btn" onPress={() => setShowNotif(true)} style={styles.iconBtn}>
           <Ionicons name={notifCount > 0 ? 'notifications' : 'notifications-outline'} size={22} color={notifCount > 0 ? Colors.warning : Colors.onSurface} />
           {notifCount > 0 && (
@@ -93,7 +89,21 @@ export default function Dashboard() {
           <Text style={styles.heroDate}>{formatFullDate(now)}</Text>
         </LinearGradient>
 
-        {/* KPI row moved to header (Upcoming pill). Revenue lives in the menu. */}
+        {/* Upcoming Events — compact card in body (moved back from header) */}
+        <Pressable
+          testID="upcoming-tile"
+          onPress={() => router.push('/(tabs)/bookings')}
+          style={styles.upcomingTile}
+        >
+          <View style={[styles.kpiIcon, { backgroundColor: Colors.secondaryContainer }]}>
+            <Ionicons name="calendar" size={16} color={Colors.secondary} />
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.upcomingLabel}>Upcoming Events</Text>
+            <Text style={styles.upcomingValue}>{kpis.upcomingCount}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.muted} />
+        </Pressable>
 
         <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>Upcoming Events</Text>
@@ -234,6 +244,9 @@ const styles = StyleSheet.create({
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   upcomingPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.secondaryContainer, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 5, marginRight: 4 },
   upcomingPillText: { fontSize: 12, fontWeight: '800', color: Colors.secondary },
+  upcomingTile: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 },
+  upcomingLabel: { fontSize: 12, color: Colors.muted, fontWeight: '600' },
+  upcomingValue: { fontSize: 18, fontWeight: '800', color: Colors.onSurface, marginTop: 2 },
   menuBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: Colors.outlineVariant, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2, marginLeft: 4 },
   hero: { borderRadius: 20, padding: 20, marginBottom: 16 },
   availPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.20)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 12 },
