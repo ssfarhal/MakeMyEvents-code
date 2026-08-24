@@ -16,6 +16,7 @@ import ReportModal from '@/src/ReportModal';
 import MenuSheet from '@/src/MenuSheet';
 import NotificationSheet, { overdueBookings } from '@/src/NotificationSheet';
 import RevenueModal from '@/src/RevenueModal';
+import FinancialDetailsModal from '@/src/FinancialDetailsModal';
 import { Booking } from '@/src/api';
 
 export default function Dashboard() {
@@ -29,6 +30,7 @@ export default function Dashboard() {
   const [showMenu, setShowMenu] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showRevenue, setShowRevenue] = useState(false);
+  const [showFinancial, setShowFinancial] = useState(false);
   const router = useRouter();
 
   React.useEffect(() => {
@@ -184,6 +186,7 @@ export default function Dashboard() {
         ownerEmail={user?.email}
         items={[
           { key: 'revenue', label: 'Revenue', icon: 'wallet-outline', onPress: () => setShowRevenue(true) },
+          { key: 'financial', label: 'Financial Details', icon: 'analytics-outline', onPress: () => setShowFinancial(true) },
           { key: 'reports', label: 'Reports', icon: 'document-text-outline', onPress: () => setShowReport(true) },
           { key: 'settings', label: 'Business Settings', icon: 'settings-outline', onPress: () => setShowSettings(true) },
           { key: 'seed', label: 'Load Demo Bookings', icon: 'sparkles-outline', onPress: seed, hidden: bookings.length > 0 || loading },
@@ -203,6 +206,16 @@ export default function Dashboard() {
         visible={showRevenue}
         onClose={() => setShowRevenue(false)}
         bookings={bookings}
+      />
+
+      <FinancialDetailsModal
+        visible={showFinancial}
+        onClose={() => setShowFinancial(false)}
+        bookings={bookings}
+        hallName={user?.hallName}
+        hallAddress={user?.hallAddress}
+        ownerName={user?.ownerName}
+        ownerPhone={user?.ownerPhone}
       />
     </SafeAreaView>
   );

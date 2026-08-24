@@ -325,3 +325,167 @@ export async function shareReport(bookings: Booking[], startISO: string, endISO:
     });
   }
 }
+
+// ---------------- Financial P&L report ----------------
+
+export type FinancialSummary = {
+  income: number;
+  expenditureByCategory: { label: string; amount: number }[];
+  totalExpenditure: number;
+  netProfit: number;
+  bookingCount: number;
+};
+
+const HALL_RENT_LABEL = 'Hall Rent';
+
+export function computeFinancialSummary(bookings: Booking[], startISO: string, endISO: string): FinancialSummary {
+  const filtered = bookings.filter((b) => b.eventDate >= startISO && b.eventDate <= endISO && b.status !== 'cancelled');
+  let income = 0;
+  const catMap: Record<string, number> = {};
+  for (const b of filtered) {
+    const charges = b.charges || [];
+    if (charges.length === 0) {
+      // Legacy bookings without breakdown: treat full total as Hall Rent income
+      income += b.totalAmount || 0;
+      continue;
+    }
+    for (const c of charges) {
+      if ((c.label || '').trim().toLowerCase() === HALL_RENT_LABEL.toLowerCase()) {
+        income += c.amount || 0;
+      } else {
+        const key = (c.label || 'Other').trim() || 'Other';
+        catMap[key] = (catMap[key] || 0) + (c.amount || 0);
+      }
+    }
+  }
+  const expenditureByCategory = Object.entries(catMap)
+    .map(([label, amount]) => ({ label, amount }))
+    .sort((a, b) => b.amount - a.amount);
+  const totalExpenditure = expenditureByCategory.reduce((s, e) => s + e.amount, 0);
+  return {
+    income,
+    expenditureByCategory,
+    totalExpenditure,
+    netProfit: income - totalExpenditure,
+    bookingCount: filtered.length,
+  };
+}
+
+export function buildFinancialReportHtml(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) {
+  const hallName = opts?.hallName || 'MAKEMYEVENTS CONVENTION HALL';
+  const hallAddress = opts?.hallAddress || '';
+  const ownerName = opts?.ownerName || '';
+  const ownerPhone = opts?.ownerPhone || '';
+  const ownerBits = [ownerName, ownerPhone ? `📞 ${ownerPhone}` : ''].filter(Boolean).join(' • ');
+  const headerSubBits = [hallAddress ? `📍 ${hallAddress}` : '', ownerBits].filter(Boolean).join(' | ');
+  const now = new Date();
+  const generatedOn = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
+
+  const s = computeFinancialSummary(bookings, startISO, endISO);
+  const isProfit = s.netProfit >= 0;
+
+  const expRows = s.expenditureByCategory.length > 0
+    ? s.expenditureByCategory.map((e, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${e.label}</td>
+        <td class="amount">₹${fmt(e.amount)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="3" style="text-align:center;color:#9e9e9e">No expenditure recorded in this period.</td></tr>`;
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Financial Report ${startISO} — ${endISO}</title>
+<style>
+  @page { size: A4; margin: 14mm; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;padding:16px;background:#fff}
+  .page{max-width:760px;margin:0 auto}
+  .header{background:linear-gradient(135deg,#7B1D3C,#541528);color:#fff;padding:22px 24px;border-radius:12px 12px 0 0}
+  .header h1{font-size:22px;font-weight:800;letter-spacing:0.5px}
+  .header p{font-size:12px;opacity:0.85;margin-top:6px}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:16px 24px;background:#fafafa;border:1px solid #eee;border-top:none}
+  .kpi{background:#fff;border:1px solid #eee;border-radius:10px;padding:12px}
+  .kpi label{font-size:10px;color:#9e9e9e;text-transform:uppercase;letter-spacing:.4px}
+  .kpi p{font-size:16px;font-weight:800;margin-top:4px}
+  .section{padding:18px 24px;border:1px solid #eee;border-top:none;background:#fff}
+  .section h2{font-size:12px;font-weight:800;color:#7B1D3C;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+  table{width:100%;border-collapse:collapse}
+  th{background:#f5f5f5;padding:10px 12px;text-align:left;font-size:11px;color:#5a4a50;text-transform:uppercase;letter-spacing:.5px}
+  td{padding:10px 12px;font-size:12px;border-bottom:1px solid #f0f0f0}
+  .amount{text-align:right;font-weight:700}
+  tfoot td{font-weight:800;background:#fafafa;border-top:2px solid #7B1D3C}
+  .netcard{margin-top:14px;border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;
+    background:${isProfit ? 'linear-gradient(135deg,#e6f4ed,#c9e8d5)' : 'linear-gradient(135deg,#fde8e8,#f9d1d1)'};
+    border:1px solid ${isProfit ? '#2d7a4f' : '#b91c1c'}}
+  .netcard label{font-size:11px;color:#5a4a50;text-transform:uppercase;letter-spacing:.5px}
+  .netcard .val{font-size:22px;font-weight:900;color:${isProfit ? '#2d7a4f' : '#b91c1c'}}
+  .footer{padding:14px 24px;font-size:10px;color:#9e9e9e;text-align:center;border:1px solid #eee;border-top:none;border-radius:0 0 12px 12px;background:#fafafa}
+</style></head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1>${hallName}</h1>
+    ${headerSubBits ? `<p>${headerSubBits}</p>` : ''}
+    <p>Financial Report • ${formatShort(startISO)} — ${formatShort(endISO)} • Generated on ${generatedOn}</p>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><label>Bookings</label><p>${s.bookingCount}</p></div>
+    <div class="kpi"><label>Total Income (Hall Rent)</label><p style="color:#2d7a4f">₹${fmt(s.income)}</p></div>
+    <div class="kpi"><label>Total Expenditure</label><p style="color:#b45309">₹${fmt(s.totalExpenditure)}</p></div>
+  </div>
+
+  <div class="section">
+    <h2>Income</h2>
+    <table>
+      <thead><tr><th>Description</th><th class="amount">Amount (₹)</th></tr></thead>
+      <tbody>
+        <tr><td>Total Hall Rent Collected (${s.bookingCount} bookings)</td><td class="amount" style="color:#2d7a4f">₹${fmt(s.income)}</td></tr>
+      </tbody>
+      <tfoot><tr><td>Total Income</td><td class="amount" style="color:#2d7a4f">₹${fmt(s.income)}</td></tr></tfoot>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Expenditure (by Category)</h2>
+    <table>
+      <thead><tr><th style="width:40px">#</th><th>Category</th><th class="amount">Amount (₹)</th></tr></thead>
+      <tbody>${expRows}</tbody>
+      <tfoot><tr><td colspan="2">Total Expenditure</td><td class="amount" style="color:#b45309">₹${fmt(s.totalExpenditure)}</td></tr></tfoot>
+    </table>
+  </div>
+
+  <div class="section" style="border-radius:0 0 12px 12px;padding-top:8px">
+    <div class="netcard">
+      <div>
+        <label>${isProfit ? 'Net Profit' : 'Net Loss'}</label>
+        <p style="font-size:11px;color:#5a4a50;margin-top:4px">Income − Expenditure</p>
+      </div>
+      <div class="val">${isProfit ? '' : '- '}₹${fmt(Math.abs(s.netProfit))}</div>
+    </div>
+  </div>
+
+  <div class="footer">Financial report from ${hallName} — MakeMyEvents App</div>
+</div>
+</body></html>`;
+}
+
+export async function shareFinancialReport(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) {
+  const html = buildFinancialReportHtml(bookings, startISO, endISO, opts);
+  const filename = `Financial_Report_${startISO}_to_${endISO}.pdf`;
+  if (Platform.OS === 'web') {
+    const win = window.open('', '_blank');
+    if (win) { win.document.title = filename.replace('.pdf', ''); win.document.write(html); win.document.close(); setTimeout(() => win.print(), 500); }
+    return;
+  }
+  const { uri } = await Print.printToFileAsync({ html });
+  const finalUri = await renameForShare(uri, filename);
+  const canShare = await Sharing.isAvailableAsync();
+  if (canShare) {
+    await Sharing.shareAsync(finalUri, {
+      mimeType: 'application/pdf',
+      dialogTitle: filename,
+      UTI: 'com.adobe.pdf',
+    });
+  }
+}
