@@ -211,6 +211,21 @@ async def logout(authorization: Optional[str] = Header(default=None)):
     return {"ok": True}
 
 
+@api_router.delete("/auth/me")
+async def delete_me(authorization: Optional[str] = Header(default=None)):
+    user = await get_current_user(authorization)
+    user_id = user["user_id"]
+    session_token = authorization.split(" ", 1)[1].strip() if authorization and authorization.startswith("Bearer ") else None
+
+    await db.bookings.delete_many({"user_id": user_id})
+    await db.user_sessions.delete_many({"user_id": user_id})
+    if session_token:
+        await db.user_sessions.delete_one({"session_token": session_token})
+    await db.users.delete_one({"user_id": user_id})
+    await db.counters.delete_one({"_id": f"bookings_{user_id}"})
+    return {"ok": True}
+
+
 # ---------- Bookings ----------
 @api_router.get("/bookings", response_model=List[Booking])
 async def list_bookings(authorization: Optional[str] = Header(default=None)):

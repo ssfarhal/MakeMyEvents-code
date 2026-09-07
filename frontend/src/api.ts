@@ -58,6 +58,7 @@ export const api = {
   me: () => request('/auth/me'),
   updateMe: (data: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) => request('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
+  deleteAccount: () => request('/auth/me', { method: 'DELETE' }),
   listBookings: () => request('/bookings'),
   createBooking: (data: any) => request('/bookings', { method: 'POST', body: JSON.stringify(data) }),
   updateBooking: (id: string, data: any) =>

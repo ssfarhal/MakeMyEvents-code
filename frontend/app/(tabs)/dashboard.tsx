@@ -189,6 +189,7 @@ export default function Dashboard() {
           { key: 'financial', label: 'Financial Details', icon: 'analytics-outline', onPress: () => setShowFinancial(true) },
           { key: 'reports', label: 'Reports', icon: 'document-text-outline', onPress: () => setShowReport(true) },
           { key: 'settings', label: 'Business Settings', icon: 'settings-outline', onPress: () => setShowSettings(true) },
+          { key: 'privacy', label: 'Privacy Policy', icon: 'shield-checkmark-outline', onPress: () => router.push('/privacy-policy') },,
           { key: 'seed', label: 'Load Demo Bookings', icon: 'sparkles-outline', onPress: seed, hidden: bookings.length > 0 || loading },
           { key: 'logout', label: 'Sign out', icon: 'log-out-outline', onPress: signOut, destructive: true },
         ]}

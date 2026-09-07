@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from './theme';
 
@@ -11,14 +11,16 @@ type Props = {
   initialPhone?: string;
   initialOwnerName?: string;
   onSave: (data: { hallName: string; hallAddress: string; ownerName: string; ownerPhone: string }) => Promise<void>;
+  onDeleteAccount: () => Promise<void>;
 };
 
-export default function SettingsBottomSheet({ visible, onClose, initialName, initialAddress, initialPhone, initialOwnerName, onSave }: Props) {
+export default function SettingsBottomSheet({ visible, onClose, initialName, initialAddress, initialPhone, initialOwnerName, onSave, onDeleteAccount }: Props) {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
   const alreadyConfigured = !!(initialName && initialAddress && initialPhone && initialOwnerName);
@@ -44,6 +46,31 @@ export default function SettingsBottomSheet({ visible, onClose, initialName, ini
       onClose();
     } catch (e) { console.warn(e); }
     finally { setBusy(false); }
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete My Account',
+      'This will permanently delete your bookings and account data from the database and log you out. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await onDeleteAccount();
+              onClose();
+            } catch (e) {
+              console.warn(e);
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -131,6 +158,19 @@ export default function SettingsBottomSheet({ visible, onClose, initialName, ini
                 {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>{allFilled ? 'Save' : 'Fill all 4 fields to save'}</Text>}
               </Pressable>
             )}
+
+            <Pressable
+              onPress={confirmDelete}
+              disabled={deleting || busy}
+              style={({ pressed }) => [
+                styles.deleteBtn,
+                (deleting || busy) && { opacity: 0.55 },
+                pressed && !deleting && !busy && { opacity: 0.9 },
+              ]}
+              testID="delete-account-btn"
+            >
+              {deleting ? <ActivityIndicator color={Colors.error} /> : <Text style={styles.deleteText}>Delete My Account</Text>}
+            </Pressable>
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -153,4 +193,14 @@ const styles = StyleSheet.create({
   hint: { fontSize: 11, color: Colors.muted, marginTop: 12, lineHeight: 16 },
   save: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 20 },
   saveText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  deleteBtn: {
+    marginTop: 12,
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+    backgroundColor: Colors.errorContainer,
+  },
+  deleteText: { color: Colors.error, fontWeight: '800', fontSize: 15 },
 });

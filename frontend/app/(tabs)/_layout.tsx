@@ -10,6 +10,7 @@ import { BookingsProvider } from '@/src/BookingsContext';
 export default function TabsLayout() {
   const { user, loading } = useAuth();
   const insets = useSafeAreaInsets();
+
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background }}>
@@ -17,7 +18,9 @@ export default function TabsLayout() {
       </View>
     );
   }
+
   if (!user) return <Redirect href="/" />;
+
   return (
     <BookingsProvider>
       <Tabs

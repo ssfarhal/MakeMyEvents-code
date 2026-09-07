@@ -6,19 +6,43 @@ import { api, getToken, setToken } from './api';
 
 WebBrowser.maybeCompleteAuthSession();
 
-type User = { user_id: string; email: string; name?: string; picture?: string; hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string };
+type User = {
+  user_id: string;
+  email: string;
+  name?: string;
+  picture?: string;
+  hallName?: string;
+  hallAddress?: string;
+  ownerName?: string;
+  ownerPhone?: string;
+};
 
 type Ctx = {
   user: User | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (data: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  updateProfile: (data: {
+    hallName?: string;
+    hallAddress?: string;
+    ownerName?: string;
+    ownerPhone?: string;
+  }) => Promise<void>;
 };
 
-const AuthContext = createContext<Ctx>({ user: null, loading: true, signIn: async () => {}, signOut: async () => {}, updateProfile: async () => {} });
+const AuthContext = createContext<Ctx>({
+  user: null,
+  loading: true,
+  signIn: async () => {},
+  signOut: async () => {},
+  deleteAccount: async () => {},
+  updateProfile: async () => {},
+});
 
-export const useAuth = () => useContext(AuthContext);
+export function useAuth() {
+  return useContext(AuthContext);
+}
 
 function extractSessionId(url: string): string | null {
   if (!url) return null;
@@ -44,9 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Boot: check existing token + handle deep link (mobile) / URL fragment (web)
   useEffect(() => {
     let unsub: any;
+
     (async () => {
       try {
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -62,12 +86,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const initial = await Linking.getInitialURL();
           const sid = initial ? extractSessionId(initial) : null;
           if (sid) await exchange(sid);
+
           unsub = Linking.addEventListener('url', ({ url }) => {
             capturedUrl.current = url;
             const s = extractSessionId(url);
             if (s) exchange(s);
           });
         }
+
         const token = await getToken();
         if (token) {
           try {
@@ -81,7 +107,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     })();
-    return () => { try { unsub?.remove?.(); } catch {} };
+
+    return () => {
+      try {
+        unsub?.remove?.();
+      } catch {}
+    };
   }, [exchange]);
 
   const signIn = useCallback(async () => {
@@ -90,27 +121,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirect)}`;
       return;
     }
+
     const redirect = Linking.createURL('');
     const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirect)}`;
     const result = await WebBrowser.openAuthSessionAsync(authUrl, redirect);
+
     let url: string | null = (result as any)?.url || null;
     if (!url) url = capturedUrl.current;
     if (!url) url = await Linking.getInitialURL();
+
     const sid = url ? extractSessionId(url) : null;
     if (sid) await exchange(sid);
   }, [exchange]);
 
   const signOut = useCallback(async () => {
-    try { await api.logout(); } catch {}
+    try {
+      await api.logout();
+    } catch {}
     await setToken(null);
     setUser(null);
   }, []);
 
-  const updateProfile = useCallback(async (data: { hallName?: string; hallAddress?: string; ownerPhone?: string }) => {
+  const deleteAccount = useCallback(async () => {
+    try {
+      await api.deleteAccount();
+    } finally {
+      await setToken(null);
+      setUser(null);
+    }
+  }, []);
+
+  const updateProfile = useCallback(async (data: {
+    hallName?: string;
+    hallAddress?: string;
+    ownerName?: string;
+    ownerPhone?: string;
+  }) => {
     const updated = await api.updateMe(data);
     setUser(updated);
   }, []);
 
-  const value = useMemo(() => ({ user, loading, signIn, signOut, updateProfile }), [user, loading, signIn, signOut, updateProfile]);
+  const value = useMemo(
+    () => ({ user, loading, signIn, signOut, deleteAccount, updateProfile }),
+    [user, loading, signIn, signOut, deleteAccount, updateProfile]
+  );
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
