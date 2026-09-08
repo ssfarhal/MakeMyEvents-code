@@ -10,7 +10,8 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.applauncher.d208o0"
+      "bundleIdentifier": "com.emergent.applauncher.d208o0",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +19,8 @@
         "backgroundColor": "#7B1D3C"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.emergent.applauncher.d208o0"
+      "package": "com.emergent.applauncher.d208o0",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -36,7 +38,9 @@
           "backgroundColor": "#7B1D3C"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth"
     ],
     "experiments": {
       "typedRoutes": true

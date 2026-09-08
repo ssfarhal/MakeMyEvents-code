@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "919114221026",
+    "project_id": "bookmyevents-83ef4",
+    "storage_bucket": "bookmyevents-83ef4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:919114221026:android:8d7d2325465b0c329065bb",
+        "android_client_info": {
+          "package_name": "com.emergent.applauncher.d208o0"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBotIdGsF-pIfb3P-vRfSVG2dmJvBIs5lM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from './theme';
-import { isFirebaseConfigured, firebaseAuth } from './firebase';
 import { api } from './api';
 
 type Props = {
@@ -30,11 +29,8 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
   const [otp, setOtp] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [verificationId, setVerificationId] = useState('');
-  const recaptchaRef = useRef<any>(null);
   const confirmationRef = useRef<any>(null);
 
-  // Reset state when modal opens
   React.useEffect(() => {
     if (visible) {
       setStep('phone');
@@ -42,22 +38,16 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
       setOtp('');
       setError('');
       setBusy(false);
-      setVerificationId('');
       confirmationRef.current = null;
     }
   }, [visible]);
 
-  const formatPhone = (input: string) => {
-    // Allow digits, +, spaces, dashes
-    return input.replace(/[^0-9+\-\s]/g, '');
-  };
+  const formatPhone = (input: string) => input.replace(/[^0-9+\-\s]/g, '');
 
   const normalizePhone = (input: string) => {
     let p = input.trim().replace(/[\s\-]/g, '');
     if (!p.startsWith('+')) {
-      // Assume Indian number if 10 digits
-      if (p.length === 10) p = '+91' + p;
-      else p = '+' + p;
+      p = p.length === 10 ? '+91' + p : '+' + p;
     }
     return p;
   };
@@ -69,47 +59,55 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
       setError('Please enter a valid phone number');
       return;
     }
-
-    if (!isFirebaseConfigured || !firebaseAuth) {
-      setError(
-                  'Firebase is not configured. Please add Firebase credentials to enable phone login.\n\nContact support or use Google login instead.'
-      );
-      return;
-    }
-
     setBusy(true);
     try {
       if (Platform.OS === 'web') {
-        // Web: Use RecaptchaVerifier
+        // Web: use Firebase Web SDK with RecaptchaVerifier
         const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
-        // Create invisible recaptcha
-        if (!recaptchaRef.current && typeof document !== 'undefined') {
-          recaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
-            size: 'invisible',
-          });
+        const { firebaseAuth, isFirebaseConfigured } = await import('./firebase');
+        if (!isFirebaseConfigured || !firebaseAuth) {
+          setError('Firebase is not configured. Please add Firebase credentials to the .env file.');
+          return;
         }
-        const confirmation = await signInWithPhoneNumber(firebaseAuth, normalizedPhone, recaptchaRef.current);
+        // Create or reuse invisible recaptcha
+        if (!(window as any)._bmeRecaptcha) {
+          (window as any)._bmeRecaptcha = new RecaptchaVerifier(
+            firebaseAuth,
+            'recaptcha-container',
+            { size: 'invisible' }
+          );
+        }
+        const confirmation = await signInWithPhoneNumber(
+          firebaseAuth,
+          normalizedPhone,
+          (window as any)._bmeRecaptcha
+        );
         confirmationRef.current = confirmation;
         setStep('otp');
       } else {
-        // Native: Use Firebase REST API to send OTP
-        // Requires reCAPTCHA on native which needs a development build with @react-native-firebase
-        // For now, show a helpful message
-        setError(
-          'Phone OTP on native requires a development build with Firebase setup.\n\n' +
-          'Please use the web preview or Google login to continue.'
-        );
+        // Native (iOS / Android): use @react-native-firebase/auth
+        const rnfAuth = await import('@react-native-firebase/auth');
+        const firebaseNative = rnfAuth.default;
+        const confirmation = await firebaseNative().signInWithPhoneNumber(normalizedPhone);
+        confirmationRef.current = confirmation;
+        setStep('otp');
       }
     } catch (e: any) {
       const msg = e?.message || 'Failed to send OTP';
       if (msg.includes('invalid-phone-number')) {
-        setError('Invalid phone number format. Use: +91XXXXXXXXXX');
+        setError('Invalid phone number. Use format: +91XXXXXXXXXX');
       } else if (msg.includes('too-many-requests')) {
-        setError('Too many attempts. Please try again later.');
-      } else if (msg.includes('billing-not-enabled') || msg.includes('app-not-authorized')) {
-        setError('Firebase phone auth is not enabled. Please configure Firebase properly.');
+        setError('Too many attempts. Please wait and try again.');
+      } else if (msg.includes('api-key-not-valid') || msg.includes('invalid-api-key')) {
+        setError('Firebase configuration error. Please contact the app administrator.');
+      } else if (msg.includes('not-authorized')) {
+        setError('This domain is not authorised in Firebase. Please add it in Firebase Console → Authentication → Authorized Domains.');
       } else {
-        setError(msg.substring(0, 120));
+        setError(msg.substring(0, 150));
+      }
+      // Reset recaptcha on error so it can be recreated
+      if (Platform.OS === 'web') {
+        try { (window as any)._bmeRecaptcha?.clear(); (window as any)._bmeRecaptcha = null; } catch {}
       }
     } finally {
       setBusy(false);
@@ -122,34 +120,14 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
       setError('Enter the OTP code you received');
       return;
     }
-
+    if (!confirmationRef.current) {
+      setError('Session expired. Please go back and resend the OTP.');
+      return;
+    }
     setBusy(true);
     try {
-      let idToken = '';
-
-      if (Platform.OS === 'web' && confirmationRef.current) {
-        // Web: confirm via Firebase SDK
-        const result = await confirmationRef.current.confirm(otp);
-        idToken = await result.user.getIdToken();
-      } else if (verificationId) {
-        // Native fallback: verify via REST
-        const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY || '';
-        const verifyRes = await fetch(
-          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPhoneNumber?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionInfo: verificationId, code: otp }),
-          }
-        );
-        const verifyData = await verifyRes.json();
-        if (!verifyRes.ok) throw new Error(verifyData?.error?.message || 'OTP verification failed');
-        idToken = verifyData.idToken;
-      } else {
-        setError('Session expired. Please resend the OTP.');
-        setStep('phone');
-        return;
-      }
+      const result = await confirmationRef.current.confirm(otp);
+      const idToken = await result.user.getIdToken();
 
       // Exchange Firebase ID token for BookMyEvents session
       const authResponse: any = await api.phoneVerify(idToken);
@@ -158,11 +136,13 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
     } catch (e: any) {
       const msg = e?.message || 'Verification failed';
       if (msg.includes('invalid-verification-code') || msg.includes('INVALID_CODE')) {
-        setError('Incorrect OTP. Please try again.');
+        setError('Incorrect OTP. Please check and try again.');
       } else if (msg.includes('session-expired') || msg.includes('SESSION_EXPIRED')) {
-        setError('OTP expired. Please resend.');
+        setError('OTP expired. Please go back and resend.');
+      } else if (msg.includes('code-expired')) {
+        setError('OTP has expired. Please request a new one.');
       } else {
-        setError(msg.substring(0, 120));
+        setError(msg.substring(0, 150));
       }
     } finally {
       setBusy(false);
@@ -187,7 +167,9 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.title}>Phone Login</Text>
               <Text style={styles.sub}>
-                {step === 'phone' ? 'Enter your mobile number to receive an OTP' : 'Enter the OTP sent to ' + normalizePhone(phone)}
+                {step === 'phone'
+                  ? 'Enter your mobile number to receive an OTP'
+                  : `Enter the OTP sent to ${normalizePhone(phone)}`}
               </Text>
             </View>
             <Pressable onPress={onClose}>
@@ -277,13 +259,13 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
                   ) : (
                     <>
                       <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                      <Text style={styles.btnText}>Verify OTP</Text>
+                      <Text style={styles.btnText}>Verify & Login</Text>
                     </>
                   )}
                 </Pressable>
 
                 <Pressable
-                  onPress={() => { setStep('phone'); setError(''); setOtp(''); }}
+                  onPress={() => { setStep('phone'); setError(''); setOtp(''); confirmationRef.current = null; }}
                   style={styles.resendBtn}
                 >
                   <Text style={styles.resendText}>← Change number or resend</Text>
