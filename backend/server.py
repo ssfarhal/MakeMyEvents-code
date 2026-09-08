@@ -26,6 +26,42 @@ api_router = APIRouter(prefix="/api")
 EMERGENT_SESSION_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
 FIREBASE_PROJECT_ID = os.environ.get('FIREBASE_PROJECT_ID', '')
 FIREBASE_JWKS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"
+FAST2SMS_API_KEY = os.environ.get('FAST2SMS_API_KEY', '')
+
+
+# ---------- Custom SMS OTP helpers ----------
+import random
+import hashlib
+
+def _gen_otp() -> str:
+    return f"{random.randint(100000, 999999)}"
+
+
+def _otp_hash(otp: str, phone: str) -> str:
+    return hashlib.sha256(f"{otp}:{phone}".encode()).hexdigest()
+
+
+async def _send_sms_fast2sms(phone: str, otp: str) -> bool:
+    """Send OTP via Fast2SMS. Returns True on success."""
+    try:
+        bare = phone.lstrip('+')  # Fast2SMS needs bare number (no country code for Indian)
+        if bare.startswith('91') and len(bare) == 12:
+            bare = bare[2:]
+        async with httpx.AsyncClient(timeout=10) as h:
+            r = await h.post(
+                'https://www.fast2sms.com/dev/bulkV2',
+                headers={'authorization': FAST2SMS_API_KEY},
+                json={
+                    'route': 'otp',
+                    'variables_values': otp,
+                    'flash': 0,
+                    'numbers': bare,
+                }
+            )
+        return r.status_code == 200
+    except Exception as e:
+        logging.warning(f"Fast2SMS error: {e}")
+        return False
 
 
 # ---------- Models ----------
@@ -126,6 +162,15 @@ class BookingUpdate(BaseModel):
 class ManagerInvite(BaseModel):
     identifier: str   # phone number or email
     identifier_type: str = "phone"  # "phone" or "email"
+
+
+class PhoneOTPSendPayload(BaseModel):
+    phone: str
+
+
+class PhoneOTPVerifyPayload(BaseModel):
+    phone: str
+    otp: str
 
 
 class PublicDeleteRequest(BaseModel):
@@ -351,6 +396,117 @@ async def phone_verify(payload: PhoneVerifyPayload):
         user=User(
             user_id=user_id,
             phone=normalized_phone,
+            hallName=(user_doc or {}).get("hallName"),
+            role=role,
+            managed_owner_id=managed_owner_id,
+        )
+    )
+
+
+@api_router.post("/auth/phone-otp/send")
+async def send_phone_otp(payload: PhoneOTPSendPayload):
+    """Send OTP to phone number without reCAPTCHA (custom flow)."""
+    phone = _normalize_phone(payload.phone)
+    if len(phone) < 10:
+        raise HTTPException(status_code=400, detail="Invalid phone number")
+
+    otp = _gen_otp()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    otp_hash = _otp_hash(otp, phone)
+
+    # Store hashed OTP in DB (upsert by phone)
+    await db.phone_otps.update_one(
+        {"phone": phone},
+        {"$set": {
+            "phone": phone,
+            "otp_hash": otp_hash,
+            "expires_at": expires_at,
+            "attempts": 0,
+        }},
+        upsert=True,
+    )
+
+    test_mode = True  # default to test mode
+    if FAST2SMS_API_KEY:
+        sent = await _send_sms_fast2sms(phone, otp)
+        if sent:
+            test_mode = False
+
+    if test_mode:
+        # In test/dev mode: return OTP in response so user can login without real SMS
+        logging.info(f"[TEST MODE] OTP for {phone}: {otp}")
+        return {"ok": True, "test_mode": True, "otp": otp, "message": "Test mode: OTP returned in response (no SMS sent)"}
+
+    return {"ok": True, "test_mode": False, "message": f"OTP sent to {phone}"}
+
+
+@api_router.post("/auth/phone-otp/verify", response_model=AuthResponse)
+async def verify_phone_otp(payload: PhoneOTPVerifyPayload):
+    """Verify the OTP code and create a BookMyEvents session (no reCAPTCHA)."""
+    phone = _normalize_phone(payload.phone)
+    otp = (payload.otp or '').strip()
+
+    record = await db.phone_otps.find_one({"phone": phone})
+    if not record:
+        raise HTTPException(status_code=400, detail="No OTP found for this number. Please resend.")
+
+    # Check expiry
+    expires_at = record.get("expires_at")
+    if isinstance(expires_at, datetime):
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            await db.phone_otps.delete_one({"phone": phone})
+            raise HTTPException(status_code=400, detail="OTP expired. Please request a new one.")
+
+    # Throttle brute-force: max 5 attempts
+    attempts = record.get("attempts", 0)
+    if attempts >= 5:
+        await db.phone_otps.delete_one({"phone": phone})
+        raise HTTPException(status_code=429, detail="Too many incorrect attempts. Please resend OTP.")
+
+    # Verify OTP hash
+    expected_hash = _otp_hash(otp, phone)
+    if expected_hash != record.get("otp_hash"):
+        await db.phone_otps.update_one({"phone": phone}, {"$inc": {"attempts": 1}})
+        remaining = 5 - (attempts + 1)
+        raise HTTPException(status_code=400, detail=f"Incorrect OTP. {remaining} attempt(s) left.")
+
+    # OTP is correct — delete it
+    await db.phone_otps.delete_one({"phone": phone})
+
+    # Find or create user
+    existing = await db.users.find_one({"phone": phone}, {"_id": 0})
+    if existing:
+        user_id = existing["user_id"]
+    else:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        await db.users.insert_one({
+            "user_id": user_id,
+            "phone": phone,
+            "auth_method": "phone",
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+        })
+
+    session_token = f"phone_sess_{uuid.uuid4().hex}"
+    await db.user_sessions.insert_one({
+        "session_token": session_token,
+        "user_id": user_id,
+        "created_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
+    })
+
+    # Check if manager
+    manager_record = await db.manager_access.find_one({"identifier": phone, "status": "active"})
+    role = "manager" if manager_record else "owner"
+    managed_owner_id = manager_record["owner_user_id"] if manager_record else None
+
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    return AuthResponse(
+        session_token=session_token,
+        user=User(
+            user_id=user_id,
+            phone=phone,
             hallName=(user_doc or {}).get("hallName"),
             role=role,
             managed_owner_id=managed_owner_id,
@@ -688,6 +844,8 @@ async def on_startup():
     await db.bookings.create_index([("user_id", 1), ("eventDate", 1)])
     await db.manager_access.create_index([("owner_user_id", 1), ("identifier", 1)])
     await db.manager_access.create_index("identifier")
+    await db.phone_otps.create_index("phone", unique=True)
+    await db.phone_otps.create_index("expires_at", expireAfterSeconds=0)
 
 
 app.include_router(api_router)

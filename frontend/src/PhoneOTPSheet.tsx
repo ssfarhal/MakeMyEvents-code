@@ -29,7 +29,9 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
   const [otp, setOtp] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const confirmationRef = useRef<any>(null);
+  const [testOtp, setTestOtp] = useState(''); // only shown in test mode
+  const [testMode, setTestMode] = useState(false);
+  const confirmationRef = useRef<any>(null); // for @react-native-firebase on native
 
   React.useEffect(() => {
     if (visible) {
@@ -38,6 +40,8 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
       setOtp('');
       setError('');
       setBusy(false);
+      setTestOtp('');
+      setTestMode(false);
       confirmationRef.current = null;
     }
   }, [visible]);
@@ -54,6 +58,8 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
 
   const sendOTP = async () => {
     setError('');
+    setTestOtp('');
+    setTestMode(false);
     const normalizedPhone = normalizePhone(phone);
     if (normalizedPhone.length < 10) {
       setError('Please enter a valid phone number');
@@ -61,35 +67,22 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
     }
     setBusy(true);
     try {
-      if (Platform.OS === 'web') {
-        // Web: use Firebase Web SDK with RecaptchaVerifier
-        const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
-        const { firebaseAuth, isFirebaseConfigured } = await import('./firebase');
-        if (!isFirebaseConfigured || !firebaseAuth) {
-          setError('Firebase is not configured. Please add Firebase credentials to the .env file.');
-          return;
-        }
-        // Create or reuse invisible recaptcha
-        if (!(window as any)._bmeRecaptcha) {
-          (window as any)._bmeRecaptcha = new RecaptchaVerifier(
-            firebaseAuth,
-            'recaptcha-container',
-            { size: 'invisible' }
-          );
-        }
-        const confirmation = await signInWithPhoneNumber(
-          firebaseAuth,
-          normalizedPhone,
-          (window as any)._bmeRecaptcha
-        );
-        confirmationRef.current = confirmation;
-        setStep('otp');
-      } else {
-        // Native (iOS / Android): use @react-native-firebase/auth
+      if (Platform.OS !== 'web') {
+        // ── Native (iOS / Android): use @react-native-firebase/auth ──
+        // No reCAPTCHA — uses silent push (iOS) / Play Integrity (Android)
         const rnfAuth = await import('@react-native-firebase/auth');
         const firebaseNative = rnfAuth.default;
         const confirmation = await firebaseNative().signInWithPhoneNumber(normalizedPhone);
         confirmationRef.current = confirmation;
+        setStep('otp');
+      } else {
+        // ── Web: use custom backend OTP (no reCAPTCHA) ──
+        const res: any = await api.phoneSendOTP(normalizedPhone);
+        if (res?.test_mode && res?.otp) {
+          // Development mode: OTP returned in response
+          setTestOtp(res.otp);
+          setTestMode(true);
+        }
         setStep('otp');
       }
     } catch (e: any) {
@@ -98,16 +91,8 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
         setError('Invalid phone number. Use format: +91XXXXXXXXXX');
       } else if (msg.includes('too-many-requests')) {
         setError('Too many attempts. Please wait and try again.');
-      } else if (msg.includes('api-key-not-valid') || msg.includes('invalid-api-key')) {
-        setError('Firebase configuration error. Please contact the app administrator.');
-      } else if (msg.includes('not-authorized')) {
-        setError('This domain is not authorised in Firebase. Please add it in Firebase Console → Authentication → Authorized Domains.');
       } else {
         setError(msg.substring(0, 150));
-      }
-      // Reset recaptcha on error so it can be recreated
-      if (Platform.OS === 'web') {
-        try { (window as any)._bmeRecaptcha?.clear(); (window as any)._bmeRecaptcha = null; } catch {}
       }
     } finally {
       setBusy(false);
@@ -120,27 +105,31 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
       setError('Enter the OTP code you received');
       return;
     }
-    if (!confirmationRef.current) {
-      setError('Session expired. Please go back and resend the OTP.');
-      return;
-    }
     setBusy(true);
     try {
-      const result = await confirmationRef.current.confirm(otp);
-      const idToken = await result.user.getIdToken();
+      const normalizedPhone = normalizePhone(phone);
 
-      // Exchange Firebase ID token for BookMyEvents session
-      const authResponse: any = await api.phoneVerify(idToken);
-      onSuccess(authResponse.session_token, authResponse.user);
+      if (Platform.OS !== 'web' && confirmationRef.current) {
+        // ── Native: verify with @react-native-firebase ──
+        const result = await confirmationRef.current.confirm(otp);
+        const idToken = await result.user.getIdToken();
+        const authResponse: any = await api.phoneVerify(idToken);
+        onSuccess(authResponse.session_token, authResponse.user);
+      } else {
+        // ── Web: verify with custom backend ──
+        const authResponse: any = await api.phoneVerifyOTP(normalizedPhone, otp);
+        onSuccess(authResponse.session_token, authResponse.user);
+      }
       onClose();
     } catch (e: any) {
       const msg = e?.message || 'Verification failed';
-      if (msg.includes('invalid-verification-code') || msg.includes('INVALID_CODE')) {
-        setError('Incorrect OTP. Please check and try again.');
-      } else if (msg.includes('session-expired') || msg.includes('SESSION_EXPIRED')) {
-        setError('OTP expired. Please go back and resend.');
-      } else if (msg.includes('code-expired')) {
-        setError('OTP has expired. Please request a new one.');
+      if (msg.includes('invalid-verification-code') || msg.includes('INVALID_CODE') || msg.includes('Incorrect OTP')) {
+        setError(msg.includes('attempt') ? msg : 'Incorrect OTP. Please check and try again.');
+      } else if (msg.includes('session-expired') || msg.includes('SESSION_EXPIRED') || msg.includes('expired')) {
+        setError('OTP has expired. Please go back and resend.');
+      } else if (msg.includes('Too many')) {
+        setError('Too many incorrect attempts. Please request a new OTP.');
+        setStep('phone');
       } else {
         setError(msg.substring(0, 150));
       }
@@ -169,7 +158,7 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
               <Text style={styles.sub}>
                 {step === 'phone'
                   ? 'Enter your mobile number to receive an OTP'
-                  : `Enter the OTP sent to ${normalizePhone(phone)}`}
+                  : `OTP sent to ${normalizePhone(phone)}`}
               </Text>
             </View>
             <Pressable onPress={onClose}>
@@ -186,7 +175,7 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
                     <Text style={styles.countryCodeText}>🇮🇳 +91</Text>
                   </View>
                   <TextInput
-                    value={phone.startsWith('+91') ? phone.slice(3) : phone.startsWith('+') ? phone : phone}
+                    value={phone.startsWith('+91') ? phone.slice(3) : phone}
                     onChangeText={(v) => setPhone(formatPhone(v))}
                     placeholder="98765 43210"
                     placeholderTextColor={Colors.muted}
@@ -197,7 +186,7 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
                   />
                 </View>
                 <Text style={styles.hint}>
-                  Enter your 10-digit mobile number. We&apos;ll send an OTP via SMS.
+                  Enter your 10-digit mobile number. OTP will be sent via SMS.
                 </Text>
 
                 {error ? (
@@ -221,9 +210,6 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
                     </>
                   )}
                 </Pressable>
-
-                {/* Invisible reCAPTCHA container for web */}
-                {Platform.OS === 'web' && <View nativeID="recaptcha-container" />}
               </>
             ) : (
               <>
@@ -239,8 +225,22 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
                   maxLength={8}
                 />
                 <Text style={styles.hint}>
-                  OTP sent to {normalizePhone(phone)}. Valid for 5 minutes.
+                  OTP sent to {normalizePhone(phone)}. Valid for 10 minutes.
                 </Text>
+
+                {/* Test mode banner — only shown when SMS is not configured */}
+                {testMode && testOtp ? (
+                  <View style={styles.testBox}>
+                    <Ionicons name="flask-outline" size={14} color="#b45309" style={{ marginRight: 6 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.testTitle}>Test Mode — No SMS sent</Text>
+                      <Text style={styles.testOtp}>Your OTP: <Text style={styles.testOtpCode}>{testOtp}</Text></Text>
+                      <Text style={styles.testNote}>
+                        Add a FAST2SMS_API_KEY to backend .env to send real SMS.
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
 
                 {error ? (
                   <View style={styles.errorBox}>
@@ -259,13 +259,20 @@ export default function PhoneOTPSheet({ visible, onClose, onSuccess }: Props) {
                   ) : (
                     <>
                       <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                      <Text style={styles.btnText}>Verify & Login</Text>
+                      <Text style={styles.btnText}>Verify &amp; Login</Text>
                     </>
                   )}
                 </Pressable>
 
                 <Pressable
-                  onPress={() => { setStep('phone'); setError(''); setOtp(''); confirmationRef.current = null; }}
+                  onPress={() => {
+                    setStep('phone');
+                    setError('');
+                    setOtp('');
+                    setTestOtp('');
+                    setTestMode(false);
+                    confirmationRef.current = null;
+                  }}
                   style={styles.resendBtn}
                 >
                   <Text style={styles.resendText}>← Change number or resend</Text>
@@ -287,7 +294,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingTop: 8,
     paddingBottom: 32,
-    maxHeight: '85%',
+    maxHeight: '88%',
   },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: '#CCC', marginBottom: 12 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 8 },
@@ -332,10 +339,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.outline,
     paddingHorizontal: 20,
     paddingVertical: 16,
-    fontSize: 24,
+    fontSize: 28,
     color: Colors.onSurface,
-    letterSpacing: 8,
+    letterSpacing: 10,
     textAlign: 'center',
+    fontWeight: '700',
   },
   hint: { fontSize: 11, color: Colors.muted, marginTop: 8, lineHeight: 16 },
   errorBox: {
@@ -347,6 +355,20 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   errorText: { flex: 1, fontSize: 12, color: Colors.error, lineHeight: 17 },
+  testBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#fef3c7',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  testTitle: { fontSize: 11, fontWeight: '700', color: '#92400e', marginBottom: 4 },
+  testOtp: { fontSize: 12, color: '#78350f' },
+  testOtpCode: { fontSize: 20, fontWeight: '900', color: '#b45309', letterSpacing: 4 },
+  testNote: { fontSize: 10, color: '#92400e', marginTop: 4, lineHeight: 14 },
   btn: {
     backgroundColor: Colors.primary,
     borderRadius: 14,

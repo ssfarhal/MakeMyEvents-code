@@ -57,6 +57,10 @@ export const api = {
     request('/auth/session', { method: 'POST', body: JSON.stringify({ session_id }) }),
   phoneVerify: (firebase_id_token: string) =>
     request('/auth/phone-verify', { method: 'POST', body: JSON.stringify({ firebase_id_token }) }),
+  phoneSendOTP: (phone: string) =>
+    request('/auth/phone-otp/send', { method: 'POST', body: JSON.stringify({ phone }) }),
+  phoneVerifyOTP: (phone: string, otp: string) =>
+    request('/auth/phone-otp/verify', { method: 'POST', body: JSON.stringify({ phone, otp }) }),
   me: () => request('/auth/me'),
   updateMe: (data: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) => request('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
