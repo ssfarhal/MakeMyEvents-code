@@ -5,10 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@/src/AuthContext';
 import { Colors } from '@/src/theme';
+import PhoneOTPSheet from '@/src/PhoneOTPSheet';
 
 export default function Login() {
-  const { user, loading, signIn } = useAuth();
+  const { user, loading, signIn, signInWithToken } = useAuth();
   const [busy, setBusy] = React.useState(false);
+  const [showPhoneOTP, setShowPhoneOTP] = React.useState(false);
 
   if (loading) {
     return (
@@ -19,9 +21,13 @@ export default function Login() {
   }
   if (user) return <Redirect href="/(tabs)/dashboard" />;
 
-  const onLogin = async () => {
+  const onGoogleLogin = async () => {
     setBusy(true);
     try { await signIn(); } finally { setBusy(false); }
+  };
+
+  const onPhoneSuccess = async (sessionToken: string, userData: any) => {
+    await signInWithToken(sessionToken, userData);
   };
 
   return (
@@ -35,13 +41,13 @@ export default function Login() {
               <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroBrand}>MakeMyEvents</Text>
+              <Text style={styles.heroBrand}>BookMyEvents</Text>
               <Text style={styles.heroSub}>Owner access portal</Text>
             </View>
           </View>
           <Text style={styles.heroTitle}>Bookings, availability & revenue — all in one place.</Text>
           <Text style={styles.heroBody}>
-            Sign in with your Google account to manage events, approve bookings, and keep every hall update on track.
+            Sign in to manage events, approve bookings, and keep every hall update on track.
           </Text>
           <View style={styles.chipsRow}>
             {[
@@ -58,11 +64,13 @@ export default function Login() {
         </LinearGradient>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Owner Login</Text>
-          <Text style={styles.cardSub}>Use your Google account connected to the venue.</Text>
+          <Text style={styles.cardTitle}>Sign In</Text>
+          <Text style={styles.cardSub}>Use your Google account or phone number to access the app.</Text>
+
+          {/* Google Login */}
           <Pressable
             testID="google-signin-button"
-            onPress={onLogin}
+            onPress={onGoogleLogin}
             disabled={busy}
             style={({ pressed }) => [styles.btn, pressed && { opacity: 0.9 }]}
           >
@@ -75,7 +83,25 @@ export default function Login() {
               </>
             )}
           </Pressable>
-          <Text style={styles.hint}>Secure Google sign-in via Emergent auth.</Text>
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Phone OTP Login */}
+          <Pressable
+            testID="phone-signin-button"
+            onPress={() => setShowPhoneOTP(true)}
+            style={({ pressed }) => [styles.phoneBtn, pressed && { opacity: 0.9 }]}
+          >
+            <Ionicons name="phone-portrait-outline" size={18} color={Colors.primary} />
+            <Text style={styles.phoneBtnText}>Login with Phone OTP</Text>
+          </Pressable>
+
+          <Text style={styles.hint}>Secure sign-in via Google OAuth or Firebase Phone Auth.</Text>
 
           <View style={styles.infoBox}>
             <Text style={styles.infoTitle}>What you can do after login</Text>
@@ -92,6 +118,12 @@ export default function Login() {
           </View>
         </View>
       </ScrollView>
+
+      <PhoneOTPSheet
+        visible={showPhoneOTP}
+        onClose={() => setShowPhoneOTP(false)}
+        onSuccess={onPhoneSuccess}
+      />
     </LinearGradient>
   );
 }
@@ -115,11 +147,27 @@ const styles = StyleSheet.create({
   chipText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   card: { backgroundColor: '#fff', borderRadius: 24, padding: 22, borderWidth: 1, borderColor: Colors.outlineVariant },
   cardTitle: { fontSize: 22, fontWeight: '800', color: Colors.onSurface },
-  cardSub: { fontSize: 13, color: Colors.onSurfaceVariant, marginTop: 4, lineHeight: 19 },
-  btn: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 15, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  cardSub: { fontSize: 13, color: Colors.onSurfaceVariant, marginTop: 4, lineHeight: 19, marginBottom: 4 },
+  btn: { backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 15, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 16 },
   gDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   gText: { fontSize: 13, fontWeight: '800', color: '#111' },
   btnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 14, gap: 10 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.outlineVariant },
+  dividerText: { fontSize: 12, color: Colors.muted, fontWeight: '600' },
+  phoneBtn: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryContainer,
+  },
+  phoneBtnText: { color: Colors.primary, fontSize: 14, fontWeight: '700' },
   hint: { color: Colors.onSurfaceVariant, fontSize: 11, marginTop: 12 },
   infoBox: { marginTop: 20, backgroundColor: 'rgba(249,228,236,0.6)', borderRadius: 18, padding: 16 },
   infoTitle: { fontSize: 13, fontWeight: '700', color: Colors.onSurface, marginBottom: 10 },

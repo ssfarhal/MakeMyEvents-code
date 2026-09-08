@@ -55,10 +55,13 @@ async function request(path: string, options: RequestInit = {}) {
 export const api = {
   exchangeSession: (session_id: string) =>
     request('/auth/session', { method: 'POST', body: JSON.stringify({ session_id }) }),
+  phoneVerify: (firebase_id_token: string) =>
+    request('/auth/phone-verify', { method: 'POST', body: JSON.stringify({ firebase_id_token }) }),
   me: () => request('/auth/me'),
   updateMe: (data: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) => request('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   deleteAccount: () => request('/auth/me', { method: 'DELETE' }),
+  publicDeleteAccount: (email: string) => request('/public/delete-account', { method: 'POST', body: JSON.stringify({ email }) }),
   listBookings: () => request('/bookings'),
   createBooking: (data: any) => request('/bookings', { method: 'POST', body: JSON.stringify(data) }),
   updateBooking: (id: string, data: any) =>
@@ -69,6 +72,12 @@ export const api = {
     request(`/bookings/${id}/payments/${index}`, { method: 'DELETE' }),
   deleteBooking: (id: string) => request(`/bookings/${id}`, { method: 'DELETE' }),
   seed: () => request('/bookings/seed', { method: 'POST' }),
+  // Manager Access
+  listManagers: () => request('/managers'),
+  addManager: (identifier: string, identifier_type: 'phone' | 'email') =>
+    request('/managers', { method: 'POST', body: JSON.stringify({ identifier, identifier_type }) }),
+  removeManager: (identifier: string) =>
+    request(`/managers/${encodeURIComponent(identifier)}`, { method: 'DELETE' }),
 };
 
 export type Payment = { amount: number; date: string };

@@ -102,7 +102,7 @@ export default function ReferenceCodeGate() {
             />
           </View>
 
-          <Text style={styles.brand}>MakeMyEvents</Text>
+          <Text style={styles.brand}>BookMyEvents</Text>
           <Text style={styles.tagline}>Event Planning & Booking Platform</Text>
 
           <View style={styles.formCard}>
@@ -136,7 +136,7 @@ export default function ReferenceCodeGate() {
           </Pressable>
 
           <Text style={styles.footerHint}>
-            Don't have a reference code? Contact your MakeMyEvents administrator.
+            {"Don't have a reference code? Contact your BookMyEvents administrator."}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

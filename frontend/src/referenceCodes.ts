@@ -1,6 +1,7 @@
 // Add new codes to this list. Codes are case-insensitive.
 export const VALID_REFERENCE_CODES: string[] = [
-  'MME011103',
+  'BME011103',
+  'MME011103', // Legacy code kept for backward compatibility
 ];
 
 export const isValidReferenceCode = (input: string): boolean => {

@@ -20,7 +20,7 @@ import FinancialDetailsModal from '@/src/FinancialDetailsModal';
 import { Booking } from '@/src/api';
 
 export default function Dashboard() {
-  const { user, signOut, updateProfile } = useAuth();
+  const { user, signOut, updateProfile, deleteAccount, isManager } = useAuth();
   const { bookings, refresh, addBooking, updateBooking, addPayment, deletePayment, deleteBooking, seed, loading } = useBookings();
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Booking | null>(null);
@@ -61,7 +61,7 @@ export default function Dashboard() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.appbar}>
         <Image source={require('../../assets/logo.png')} style={styles.brandLogo} />
-        <Text style={styles.brand} numberOfLines={1}>{user?.hallName || 'MakeMyEvents'}</Text>
+        <Text style={styles.brand} numberOfLines={1}>{user?.hallName || 'BookMyEvents'}</Text>
         <View style={{ flex: 1 }} />
         <Pressable testID="open-notif-btn" onPress={() => setShowNotif(true)} style={styles.iconBtn}>
           <Ionicons name={notifCount > 0 ? 'notifications' : 'notifications-outline'} size={22} color={notifCount > 0 ? Colors.warning : Colors.onSurface} />
@@ -164,8 +164,10 @@ export default function Dashboard() {
         initialAddress={user?.hallAddress || ''}
         initialPhone={user?.ownerPhone || ''}
         initialOwnerName={user?.ownerName || ''}
+        isManager={isManager}
         onClose={() => setShowSettings(false)}
         onSave={async (data) => { await updateProfile(data); }}
+        onDeleteAccount={async () => { await deleteAccount(); }}
       />
 
       <ReportModal
@@ -184,13 +186,15 @@ export default function Dashboard() {
         hallName={user?.hallName}
         ownerName={user?.ownerName}
         ownerEmail={user?.email}
+        isManager={isManager}
         items={[
           { key: 'revenue', label: 'Revenue', icon: 'wallet-outline', onPress: () => setShowRevenue(true) },
           { key: 'financial', label: 'Financial Details', icon: 'analytics-outline', onPress: () => setShowFinancial(true) },
           { key: 'reports', label: 'Reports', icon: 'document-text-outline', onPress: () => setShowReport(true) },
-          { key: 'settings', label: 'Business Settings', icon: 'settings-outline', onPress: () => setShowSettings(true) },
-          { key: 'privacy', label: 'Privacy Policy', icon: 'shield-checkmark-outline', onPress: () => router.push('/privacy-policy') },,
-          { key: 'seed', label: 'Load Demo Bookings', icon: 'sparkles-outline', onPress: seed, hidden: bookings.length > 0 || loading },
+          { key: 'settings', label: 'Business Settings', icon: 'settings-outline', onPress: () => setShowSettings(true), hidden: isManager },
+          { key: 'privacy', label: 'Privacy Policy', icon: 'shield-checkmark-outline', onPress: () => router.push('/privacy-policy') },
+          { key: 'terms', label: 'Terms & Conditions', icon: 'document-outline', onPress: () => router.push('/terms-and-conditions') },
+          { key: 'seed', label: 'Load Demo Bookings', icon: 'sparkles-outline', onPress: seed, hidden: bookings.length > 0 || loading || isManager },
           { key: 'logout', label: 'Sign out', icon: 'log-out-outline', onPress: signOut, destructive: true },
         ]}
       />
@@ -222,7 +226,7 @@ export default function Dashboard() {
   );
 }
 
-function SettingsModal({ visible, initialName, initialAddress, initialPhone, initialOwnerName, onClose, onSave }: any) {
+function SettingsModal({ visible, initialName, initialAddress, initialPhone, initialOwnerName, isManager, onClose, onSave, onDeleteAccount }: any) {
   return (
     <SettingsBottomSheet
       visible={visible}
@@ -231,7 +235,9 @@ function SettingsModal({ visible, initialName, initialAddress, initialPhone, ini
       initialAddress={initialAddress}
       initialPhone={initialPhone}
       initialOwnerName={initialOwnerName}
+      isManager={isManager}
       onSave={onSave}
+      onDeleteAccount={onDeleteAccount}
     />
   );
 }

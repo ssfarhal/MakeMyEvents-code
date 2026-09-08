@@ -19,9 +19,10 @@ type Props = {
   hallName?: string;
   ownerName?: string;
   ownerEmail?: string;
+  isManager?: boolean;
 };
 
-export default function MenuSheet({ visible, onClose, items, hallName, ownerName, ownerEmail }: Props) {
+export default function MenuSheet({ visible, onClose, items, hallName, ownerName, ownerEmail, isManager }: Props) {
   const shown = items.filter((i) => !i.hidden);
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -32,10 +33,10 @@ export default function MenuSheet({ visible, onClose, items, hallName, ownerName
 
           <View style={styles.profileRow}>
             <View style={styles.avatar}>
-              <Ionicons name="business" size={22} color={Colors.primary} />
+              <Ionicons name={isManager ? 'person' : 'business'} size={22} color={Colors.primary} />
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.hallName} numberOfLines={1}>{hallName || 'MakeMyEvents'}</Text>
+              <Text style={styles.hallName} numberOfLines={1}>{hallName || 'BookMyEvents'}</Text>
               {ownerName ? (
                 <Text style={styles.email} numberOfLines={1}>{ownerName}</Text>
               ) : null}
@@ -44,6 +45,13 @@ export default function MenuSheet({ visible, onClose, items, hallName, ownerName
               <Ionicons name="close" size={20} color={Colors.onSurfaceVariant} />
             </Pressable>
           </View>
+
+          {isManager && (
+            <View style={styles.managerBadge}>
+              <Ionicons name="shield-outline" size={13} color={Colors.secondary} style={{ marginRight: 4 }} />
+              <Text style={styles.managerBadgeText}>Manager Mode — View &amp; Create Only</Text>
+            </View>
+          )}
 
           <View style={styles.divider} />
 
@@ -64,7 +72,7 @@ export default function MenuSheet({ visible, onClose, items, hallName, ownerName
             ))}
           </ScrollView>
 
-          <Text style={styles.footer}>MakeMyEvents • Owner portal</Text>
+          <Text style={styles.footer}>BookMyEvents • Owner portal</Text>
         </View>
       </View>
     </Modal>
@@ -80,6 +88,8 @@ const styles = StyleSheet.create({
   hallName: { fontSize: 16, fontWeight: '800', color: Colors.onSurface },
   email: { fontSize: 12, color: Colors.muted, marginTop: 2 },
   closeBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.surfaceVariant, alignItems: 'center', justifyContent: 'center' },
+  managerBadge: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 8, backgroundColor: Colors.secondaryContainer, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 },
+  managerBadgeText: { fontSize: 12, color: Colors.secondary, fontWeight: '700' },
   divider: { height: 1, backgroundColor: Colors.outlineVariant, marginHorizontal: 20 },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 },
   rowPressed: { backgroundColor: Colors.surfaceVariant },

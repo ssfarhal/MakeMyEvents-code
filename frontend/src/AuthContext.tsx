@@ -8,19 +8,23 @@ WebBrowser.maybeCompleteAuthSession();
 
 type User = {
   user_id: string;
-  email: string;
+  email?: string;
   name?: string;
   picture?: string;
+  phone?: string;
   hallName?: string;
   hallAddress?: string;
   ownerName?: string;
   ownerPhone?: string;
+  role?: 'owner' | 'manager';
+  managed_owner_id?: string;
 };
 
 type Ctx = {
   user: User | null;
   loading: boolean;
   signIn: () => Promise<void>;
+  signInWithToken: (sessionToken: string, userData: User) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   updateProfile: (data: {
@@ -29,15 +33,18 @@ type Ctx = {
     ownerName?: string;
     ownerPhone?: string;
   }) => Promise<void>;
+  isManager: boolean;
 };
 
 const AuthContext = createContext<Ctx>({
   user: null,
   loading: true,
   signIn: async () => {},
+  signInWithToken: async () => {},
   signOut: async () => {},
   deleteAccount: async () => {},
   updateProfile: async () => {},
+  isManager: false,
 });
 
 export function useAuth() {
@@ -134,6 +141,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (sid) await exchange(sid);
   }, [exchange]);
 
+  /** Called after successful Firebase phone OTP verification */
+  const signInWithToken = useCallback(async (sessionToken: string, userData: User) => {
+    await setToken(sessionToken);
+    setUser(userData);
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       await api.logout();
@@ -161,9 +174,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(updated);
   }, []);
 
+  const isManager = user?.role === 'manager';
+
   const value = useMemo(
-    () => ({ user, loading, signIn, signOut, deleteAccount, updateProfile }),
-    [user, loading, signIn, signOut, deleteAccount, updateProfile]
+    () => ({ user, loading, signIn, signInWithToken, signOut, deleteAccount, updateProfile, isManager }),
+    [user, loading, signIn, signInWithToken, signOut, deleteAccount, updateProfile, isManager]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

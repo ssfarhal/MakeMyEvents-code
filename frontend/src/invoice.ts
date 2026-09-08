@@ -93,7 +93,7 @@ export function buildInvoiceHtml(booking: Booking, opts?: { hallName?: string; h
   const now = new Date();
   const invoiceDate = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
   const termsHtml = DEFAULT_TERMS.split('\n').filter((l) => l.trim()).map((l) => `<li>${l.trim()}</li>`).join('\n');
-  const hallName = opts?.hallName || 'MAKEMYEVENTS CONVENTION HALL';
+  const hallName = opts?.hallName || 'BOOKMYEVENTS CONVENTION HALL';
   const hallAddress = opts?.hallAddress || '';
   const ownerName = opts?.ownerName || '';
   const ownerPhone = opts?.ownerPhone || '';
@@ -206,7 +206,7 @@ export async function shareInvoice(booking: Booking, opts?: { hallName?: string;
 // ---------------- Custom date-range report ----------------
 
 export function buildReportHtml(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) {
-  const hallName = opts?.hallName || 'MAKEMYEVENTS CONVENTION HALL';
+  const hallName = opts?.hallName || 'BOOKMYEVENTS CONVENTION HALL';
   const hallAddress = opts?.hallAddress || '';
   const ownerName = opts?.ownerName || '';
   const ownerPhone = opts?.ownerPhone || '';
@@ -301,7 +301,7 @@ export function buildReportHtml(bookings: Booking[], startISO: string, endISO: s
       <td colspan="2"></td>
     </tr></tfoot>
   </table>`}
-  <div class="footer">Report from ${hallName} — MakeMyEvents App</div>
+  <div class="footer">Report from ${hallName} — BookMyEvents App</div>
 </div>
 </body></html>`;
 }
@@ -372,7 +372,7 @@ export function computeFinancialSummary(bookings: Booking[], startISO: string, e
 }
 
 export function buildFinancialReportHtml(bookings: Booking[], startISO: string, endISO: string, opts?: { hallName?: string; hallAddress?: string; ownerName?: string; ownerPhone?: string }) {
-  const hallName = opts?.hallName || 'MAKEMYEVENTS CONVENTION HALL';
+  const hallName = opts?.hallName || 'BOOKMYEVENTS CONVENTION HALL';
   const hallAddress = opts?.hallAddress || '';
   const ownerName = opts?.ownerName || '';
   const ownerPhone = opts?.ownerPhone || '';
@@ -465,7 +465,7 @@ export function buildFinancialReportHtml(bookings: Booking[], startISO: string, 
     </div>
   </div>
 
-  <div class="footer">Financial report from ${hallName} — MakeMyEvents App</div>
+  <div class="footer">Financial report from ${hallName} — BookMyEvents App</div>
 </div>
 </body></html>`;
 }
