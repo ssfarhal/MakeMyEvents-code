@@ -101,3 +101,143 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "BookMyEvents - Venue booking management app. Fix IDOR Security Vulnerability (SEC-001) in backend booking endpoints: update_booking (PATCH /api/bookings/{id}), add_payment (POST /api/bookings/{id}/payments), delete_payment (DELETE /api/bookings/{id}/payments/{index}). Each endpoint must validate user_id ownership, accounting for manager role via _get_booking_owner_id helper."
+
+backend:
+  - task: "IDOR Security Fix (SEC-001) - update_booking ownership validation"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED by testing agent. User B attempting PATCH on User A's booking returns 404. User A can PATCH own booking (200). Fix: {id: booking_id, user_id: owner_id} filter confirmed working."
+
+  - task: "IDOR Security Fix (SEC-001) - add_payment ownership validation"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED by testing agent. User B attempting POST payment to User A's booking returns 404. User A can add payment to own booking (200)."
+
+  - task: "IDOR Security Fix (SEC-001) - delete_payment ownership validation"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED by testing agent. User B attempting DELETE payment on User A's booking returns 404. User A can delete own booking's payment (200)."
+
+  - task: "Manager role-based ownership validation in booking endpoints"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "_get_booking_owner_id helper verified. 7/7 security tests PASSED. Cross-user attacks return 404, legitimate same-user access returns 200."
+
+  - task: "Auth - Google OAuth session exchange"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Auth session exchange implemented and working from previous sessions."
+
+  - task: "Phone OTP custom backend flow"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Custom OTP flow implemented. Fast2SMS blocked (returns 999) - test mode returns OTP in response. Brute-force protection with 5 attempt limit. TTL expiry on phone_otps collection."
+
+  - task: "Manager Access endpoints (list/add/remove)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Manager access endpoints working. Managers cannot manage other managers."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "IDOR Security Fix (SEC-001) - update_booking ownership validation"
+    - "IDOR Security Fix (SEC-001) - add_payment ownership validation"
+    - "IDOR Security Fix (SEC-001) - delete_payment ownership validation"
+    - "Manager role-based ownership validation in booking endpoints"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      CONTEXT: This is BookMyEvents - a venue booking management app with FastAPI backend + MongoDB.
+      
+      TASK: Verify IDOR Security Fix (SEC-001) for booking mutation endpoints.
+      
+      KEY FINDINGS: Main agent analyzed server.py and found the IDOR fix appears to ALREADY BE IN PLACE:
+      - All booking endpoints call _get_booking_owner_id(user) to get owner_id
+      - All MongoDB queries use BOTH {id: booking_id, user_id: owner_id}
+      - _get_booking_owner_id returns managed_owner_id for managers, user_id for owners
+      
+      WHAT TO TEST (backend only, no frontend needed):
+      1. Create TWO separate users (User A and User B) via the OTP flow:
+         - POST /api/auth/phone-otp/send with phone "+911111111111" → get OTP from response (test mode)
+         - POST /api/auth/phone-otp/verify to get session_token for User A
+         - Do the same with "+912222222222" for User B
+      
+      2. Create a booking for User A:
+         - POST /api/bookings (with User A's token)
+         - Note the booking ID (e.g., BME-001)
+      
+      3. IDOR Attack Tests (using User B's token to attack User A's booking):
+         - PATCH /api/bookings/{userA_booking_id} → should return 404, NOT 200
+         - POST /api/bookings/{userA_booking_id}/payments → should return 404, NOT 200
+         - DELETE /api/bookings/{userA_booking_id} → should return 404, NOT 200
+      
+      4. Verify legitimate access still works (User A modifying their own booking):
+         - PATCH /api/bookings/{userA_booking_id} with User A's token → should return 200
+      
+      5. Seed test data first: POST /api/bookings/seed (with User A's token) to have bookings to work with
+      
+      IMPORTANT: The backend runs on port 8001. Use http://localhost:8001 for all API calls.
+      The gate code for the app is MME011103 (not needed for backend testing).
+      
+      Report: For each test, report whether it PASSED (security working) or FAILED (vulnerability exists).

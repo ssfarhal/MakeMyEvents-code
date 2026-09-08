@@ -42,23 +42,26 @@ def _otp_hash(otp: str, phone: str) -> str:
 
 
 async def _send_sms_fast2sms(phone: str, otp: str) -> bool:
-    """Send OTP via Fast2SMS. Returns True on success."""
+    """Send OTP via Fast2SMS Quick SMS route. Returns True on success."""
     try:
-        bare = phone.lstrip('+')  # Fast2SMS needs bare number (no country code for Indian)
+        bare = phone.lstrip('+')
         if bare.startswith('91') and len(bare) == 12:
             bare = bare[2:]
+        message = f"Your BookMyEvents OTP is {otp}. Valid for 10 minutes. Do not share with anyone."
         async with httpx.AsyncClient(timeout=10) as h:
             r = await h.post(
                 'https://www.fast2sms.com/dev/bulkV2',
                 headers={'authorization': FAST2SMS_API_KEY},
                 json={
-                    'route': 'otp',
-                    'variables_values': otp,
+                    'route': 'q',
+                    'message': message,
                     'flash': 0,
                     'numbers': bare,
                 }
             )
-        return r.status_code == 200
+        resp = r.json() if r.content else {}
+        logging.info(f"Fast2SMS response: {r.status_code} | {resp}")
+        return r.status_code == 200 and resp.get('return', False)
     except Exception as e:
         logging.warning(f"Fast2SMS error: {e}")
         return False
